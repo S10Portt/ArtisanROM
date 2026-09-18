@@ -78,6 +78,81 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
     done
     unset _MFP_VER
     LOG_STEP_OUT
+
+    # 2026-09-19: real-device logcat is full of repeated
+    #   libprocessgroup: Failed to write 'N-7' to /dev/cpuset/cpus: Permission denied
+    # Confirmed NOT a DAC/SELinux problem: /dev/cpuset/cpus is 0664
+    # root:system with zero matching avc denials, and the root ("top")
+    # cpuset's own cpus file is kernel-enforced read-only regardless of
+    # mode bits (see Documentation/admin-guide/cgroup-v1/cpusets.rst).
+    # GZD7-sourced system/etc/surfaceflinger.rc applies task_profiles
+    # "GpisSfCpusetJoin" (system/etc/task_profiles.json: JoinCgroup cpuset
+    # "sf"), and system_server's "SystemServiceCapacityHigh" profile does
+    # JoinCgroup cpuset "foreground-boost". Both target directories are
+    # created by GZD7's own SoC-specific vendor init
+    # (vendor/etc/init/init.s5e9925.rc, "on init", "CPUSET(s5e9925)"
+    # section) - a file that is never part of this ROM's build since vendor
+    # = HWC1. HWC1's own vendor/etc/init/init.exynos9820.rc "CPUSET(9820)"
+    # section was checked directly and confirms real stock S10 never had
+    # this concept at all (only chown/chmod on the standard
+    # top-app/foreground/background/system-background/restricted groups,
+    # no "sf" or "foreground-boost" anywhere). Confirmed empirically
+    # on-device (adb shell): /dev/cpuset/sf and /dev/cpuset/foreground-boost
+    # do not exist; SurfaceFlinger and all 33 of its threads sit in the root
+    # cgroup "/" because its JoinCgroup "sf" silently fails at boot; the
+    # "GpisSfCpuset" Attribute (task_profiles.json) has no "Path", so
+    # SetAttribute resolves the target file relative to the *calling task's
+    # actual* cgroup - for a root-cgroup task that is exactly
+    # /dev/cpuset/cpus, matching the observed failure precisely. This is
+    # P2/non-blocking (screen recording, app switching, SystemUI all
+    # confirmed normal with this warning present) but leaves GZD7's intended
+    # GPIS SurfaceFlinger CPU-placement boost silently inert. Fix: recreate
+    # both compatibility cpuset groups in HWC1's own init.exynos9820.rc,
+    # mirroring GZD7's init.s5e9925.rc mkdir/copy/chown/chmod sequence
+    # exactly, but with HWC1's own CPU masks instead of GZD7's
+    # s5e9925-specific ones (which have no proven meaning on this SoC): "sf"
+    # gets HWC1's own "foreground" mask (0-2,4-7 - the mask real S10
+    # firmware engineers already chose for foreground-priority work on this
+    # exact SoC), "foreground-boost" gets 0-7 (matches both GZD7's own
+    # foreground-boost and HWC1's own top-app, uncontested on both sides).
+    # Reviewed and approved by ChatGPT(웹), including this exact mask choice.
+    # Scoped to beyond1lte: not verified for any other device sharing this
+    # platform module.
+    LOG_STEP_IN "- Restoring GZD7-expected 'sf'/'foreground-boost' cpuset groups in HWC1 (SM-G973F) vendor init (missing from stock S10, referenced by GZD7's task_profiles.json/surfaceflinger.rc)"
+    _CPUSET_RC="$WORK_DIR/vendor/etc/init/init.exynos9820.rc"
+    if [ ! -f "$_CPUSET_RC" ]; then
+        LOGE "File not found: ${_CPUSET_RC//$WORK_DIR/}"
+        return 1
+    fi
+    if ! grep -qF "mkdir /dev/cpuset/sf" "$_CPUSET_RC"; then
+        {
+            echo ""
+            echo "# GZD7 compatibility cpusets (sf / foreground-boost) -- see target/beyond1lte/README.md"
+            echo "on init"
+            echo "    mkdir /dev/cpuset/sf"
+            echo "    copy /dev/cpuset/cpus /dev/cpuset/sf/cpus"
+            echo "    copy /dev/cpuset/mems /dev/cpuset/sf/mems"
+            echo "    chown system system /dev/cpuset/sf/tasks"
+            echo "    chown system system /dev/cpuset/sf/cgroup.procs"
+            echo "    chown system system /dev/cpuset/sf/cpus"
+            echo "    chmod 0664 /dev/cpuset/sf/cpus"
+            echo "    write /dev/cpuset/sf/cpus 0-2,4-7"
+            echo ""
+            echo "    mkdir /dev/cpuset/foreground-boost"
+            echo "    copy /dev/cpuset/cpus /dev/cpuset/foreground-boost/cpus"
+            echo "    copy /dev/cpuset/mems /dev/cpuset/foreground-boost/mems"
+            echo "    chown system system /dev/cpuset/foreground-boost"
+            echo "    chown system system /dev/cpuset/foreground-boost/tasks"
+            echo "    chown system system /dev/cpuset/foreground-boost/cgroup.procs"
+            echo "    chown system system /dev/cpuset/foreground-boost/cpus"
+            echo "    chmod 0664 /dev/cpuset/foreground-boost/tasks"
+            echo "    chmod 0664 /dev/cpuset/foreground-boost/cgroup.procs"
+            echo "    chmod 0664 /dev/cpuset/foreground-boost/cpus"
+            echo "    write /dev/cpuset/foreground-boost/cpus 0-7"
+        } >> "$_CPUSET_RC"
+    fi
+    unset _CPUSET_RC
+    LOG_STEP_OUT
 fi
 
 LOG_STEP_IN "- Adding stock NFC Case features"
