@@ -33,6 +33,17 @@ SEC_FLOATING_FEATURE_BIXBY_SUPPORT_USERKWD_WAKEUP=TRUE
 SEC_FLOATING_FEATURE_BIXBY_SUPPORT_LONG_KEY_SERVICE=FALSE
 SEC_FLOATING_FEATURE_SETTINGS_SUPPORT_FUNCTION_KEY_MENU=FALSE
 
+# Navigation bar
+# 2026-09-19: pinned explicitly because this key ends up missing from the
+# packaged system/etc/floating_feature.xml despite being present, identical,
+# in both GZD7 (source) and HWC1 (target) raw firmware -- the exact deletion
+# path was not found via static tracing/isolated re-run of
+# unica/patches/__floating_feature, so this is applied unconditionally as the
+# last write for this key (see target/beyond1lte/README.md).
+# Without it, SystemUI's BasicRune.NAVBAR_ENABLED resolves false, which skips
+# registering Dependency.NAVBAR_BG_HANDLER and crash-loops SystemUI.
+SEC_FLOATING_FEATURE_FRAMEWORK_CONFIG_NAVIGATION_BAR_THEME=SupportLightNavigationBar|SupportCustomBgColor|SupportNaviBarRemoteView
+
 # NFC
 SEC_FLOATING_FEATURE_FRAMEWORK_CONFIG_NFC_LED_COVER_LEVEL=60
 
