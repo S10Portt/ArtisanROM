@@ -63,9 +63,26 @@ sysfs_size_path() {
     return 1
 }
 
+# bytes_to_string(): formats sectors*512 for a log message without doing the
+# multiplication in shell arithmetic. Some recovery shells (observed: TWRP's
+# on this exact device) implement $(( )) with 32-bit signed integers, and
+# sectors*512 for anything past ~4.19M sectors (~2GiB) silently wraps to a
+# negative number -- this bit real S10 hardware for the 7GB system partition
+# (14336000 * 512 overflowed to -1249902592). awk uses floating point (>15
+# significant digits, exact for integers this size), so it is used here
+# purely for the human-readable log line; it is never used for the pass/fail
+# decision below, which compares sector counts directly and never multiplies.
+bytes_to_string() {
+    if command -v awk >/dev/null 2>&1; then
+        awk "BEGIN { printf \"%.0f\", $1 * 512 }"
+    else
+        echo "${1} sectors (x512)"
+    fi
+}
+
 check_partition() {
     local name="$1"
-    local expected_bytes="$2"
+    local expected_sectors="$2"
 
     local link
     link="$(resolve_link "$name")" || fail "partition '$name' not found under any known by-name path"
@@ -85,19 +102,23 @@ check_partition() {
         ''|*[!0-9]*) fail "non-numeric block size reported for '$name': '$sectors'" ;;
     esac
 
-    local actual_bytes=$((sectors * 512))
-    if [ "$actual_bytes" != "$expected_bytes" ]; then
-        fail "'$name' size mismatch: this build expects ${expected_bytes} bytes (user-repartition-20260913), device reports ${actual_bytes} bytes (${link} -> ${real}). This is very likely NOT the measured device; refusing to write."
+    # Compare sector counts directly -- no multiplication, so this cannot
+    # overflow regardless of the shell's integer width.
+    if [ "$sectors" != "$expected_sectors" ]; then
+        fail "'$name' size mismatch: this build expects ${expected_sectors} sectors / $(bytes_to_string "$expected_sectors") bytes (user-repartition-20260913), device reports ${sectors} sectors / $(bytes_to_string "$sectors") bytes (${link} -> ${real}). This is very likely NOT the measured device; refusing to write."
     fi
-    echo "layout-preflight: OK: $name = ${actual_bytes} bytes (${link})"
+    echo "layout-preflight: OK: $name = ${sectors} sectors / $(bytes_to_string "$sectors") bytes (${link})"
 }
 
-check_partition "system"  7340032000
-check_partition "vendor"  1572864000
-check_partition "product" 1572864000
-check_partition "boot"    57671680
-check_partition "dtb"     8388608
-check_partition "dtbo"    8388608
+# Expected sizes in 512-byte sectors (bytes / 512, all exact -- see
+# target/beyond1lte/layouts/measurement/layout.json): system=7340032000, vendor=product=
+# 1572864000, boot=57671680, dtb=dtbo=8388608.
+check_partition "system"  14336000
+check_partition "vendor"  3072000
+check_partition "product" 3072000
+check_partition "boot"    112640
+check_partition "dtb"     16384
+check_partition "dtbo"    16384
 
 echo "layout-preflight: PASSED"
 exit 0
