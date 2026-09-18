@@ -1,9 +1,24 @@
 # [
-_LOG() { if $DEBUG; then LOGW "$1"; else ABORT "$1"; fi }
+_LOG()
+{
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        LOGE "$1"
+        exit 1
+    elif $DEBUG; then
+        LOGW "$1"
+    else
+        ABORT "$1"
+    fi
+}
 
 LOG_MISSING_PATCHES()
 {
     local MESSAGE="Missing SPF patches for condition ($1: [${!1}], $2: [${!2}])"
+
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        LOGE "${MESSAGE}. Required S10 compatibility patch is unavailable"
+        exit 1
+    fi
 
     if $DEBUG; then
         LOGW "$MESSAGE"
@@ -170,7 +185,11 @@ if $SOURCE_CAMERA_SUPPORT_CAMERAX_EXTENSION; then
         DELETE_FROM_WORK_DIR "system" "system/lib/libsec_camerax_util_jni.camera.samsung.so"
         DELETE_FROM_WORK_DIR "system" "system/lib64/libsec_camerax_util_jni.camera.samsung.so"
         DELETE_FROM_WORK_DIR "system" "system/priv-app/sec_camerax_service"
-        SET_PROP "system" "ro.camerax.extensions.enabled" --delete
+        if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+            python3 "$SRC_DIR/scripts/utils/s10_property_consumers.py" delete-camerax "$WORK_DIR" || exit 1
+        else
+            SET_PROP "system" "ro.camerax.extensions.enabled" --delete
+        fi
     fi
 else
     if $TARGET_CAMERA_SUPPORT_CAMERAX_EXTENSION; then
@@ -321,28 +340,47 @@ fi
 
 # Fix object capture
 if [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "essi" ]]; then
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        S10_OBJECT_IDS="$(python3 "$SRC_DIR/scripts/utils/s10_property_consumers.py" objectcapture "$WORK_DIR")" || exit 1
+        IFS=$'\t' read -r OBJECT_SYSTEM_DEVICE OBJECT_VENDOR_DEVICE <<< "$S10_OBJECT_IDS"
+        unset S10_OBJECT_IDS
+    else
+        OBJECT_SYSTEM_DEVICE="$(GET_PROP "system" "ro.product.device")"
+        OBJECT_VENDOR_DEVICE="$(GET_PROP "vendor" "ro.product.vendor.device")"
+    fi
     if {
-        [[ "$(GET_PROP "system" "ro.product.device")" =~ r0|g0|b0 ]] && \
-            ! [[ "$(GET_PROP "vendor" "ro.product.vendor.device")" =~ r0|g0|b0 ]]
+        [[ "$OBJECT_SYSTEM_DEVICE" =~ r0|g0|b0 ]] && \
+            ! [[ "$OBJECT_VENDOR_DEVICE" =~ r0|g0|b0 ]]
     } || {
-        [[ "$(GET_PROP "system" "ro.product.device")" == "a56"* ]] && \
-            [[ "$(GET_PROP "vendor" "ro.product.vendor.device")" != "a56"* ]]
+        [[ "$OBJECT_SYSTEM_DEVICE" == "a56"* ]] && \
+            [[ "$OBJECT_VENDOR_DEVICE" != "a56"* ]]
     }; then
         HEX_PATCH "$WORK_DIR/system/system/lib64/libobjectcapture_jni.arcsoft.so" \
-            "e503162a47020094e022009121008052e203162a" "8500805247020094e02200912100805282008052"
-    elif ! [[ "$(GET_PROP "system" "ro.product.device")" =~ r0|g0|b0 ]] && \
-            [[ "$(GET_PROP "vendor" "ro.product.vendor.device")" =~ r0|g0|b0 ]]; then
+            "e503162a47020094e022009121008052e203162a" "8500805247020094e02200912100805282008052" || exit 1
+    elif ! [[ "$OBJECT_SYSTEM_DEVICE" =~ r0|g0|b0 ]] && \
+            [[ "$OBJECT_VENDOR_DEVICE" =~ r0|g0|b0 ]]; then
         HEX_PATCH "$WORK_DIR/system/system/lib64/libobjectcapture_jni.arcsoft.so" \
-            "e503162a47020094e022009121008052e203162a" "4500805247020094e02200912100805242008052"
-    elif [[ "$(GET_PROP "system" "ro.product.device")" != "a56"* ]] && \
-            [[ "$(GET_PROP "vendor" "ro.product.vendor.device")" == "a56"* ]]; then
+            "e503162a47020094e022009121008052e203162a" "4500805247020094e02200912100805242008052" || exit 1
+    elif [[ "$OBJECT_SYSTEM_DEVICE" != "a56"* ]] && \
+            [[ "$OBJECT_VENDOR_DEVICE" == "a56"* ]]; then
         HEX_PATCH "$WORK_DIR/system/system/lib64/libobjectcapture_jni.arcsoft.so" \
-            "e503162a47020094e022009121008052e203162a" "c500805247020094e022009121008052c2008052"
+            "e503162a47020094e022009121008052e203162a" "c500805247020094e022009121008052c2008052" || exit 1
     fi
+fi
+unset OBJECT_SYSTEM_DEVICE OBJECT_VENDOR_DEVICE
+
+# GZD7-specific S10 encoder caller compatibility. Reject unknown whole inputs.
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    python3 "$MODPATH/s10_stagefright.py" \
+        "$WORK_DIR/system/system/lib64/libstagefright.so" || exit 1
 fi
 
 # Fix portrait mode
-if [ -f "$WORK_DIR/vendor/lib64/libDualCamBokehCapture.camera.samsung.so" ]; then
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    python3 "$MODPATH/s10_portrait.py" "$WORK_DIR" \
+        "$FW_DIR/$TARGET_FIRMWARE_PATH" \
+        "$SRC_DIR/target/beyond1lte/camera/portrait-vendor.json" || exit 1
+elif [ -f "$WORK_DIR/vendor/lib64/libDualCamBokehCapture.camera.samsung.so" ]; then
     if grep -q "ro.build.flavor" "$WORK_DIR/vendor/lib64/libDualCamBokehCapture.camera.samsung.so" 2> /dev/null; then
         SET_PROP "system" "ro.build.flavor" "$(GET_PROP "$FW_DIR/$TARGET_FIRMWARE_PATH/system/system/build.prop" "ro.build.flavor")"
     elif grep -q "ro.product.name" "$WORK_DIR/vendor/lib64/libDualCamBokehCapture.camera.samsung.so" 2> /dev/null; then

@@ -22,6 +22,20 @@ APPLY_MODULE()
         MODPATH="$MODPATH/$TARGET_OS_SINGLE_SYSTEM_IMAGE"
     fi
 
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        case "$MODPATH" in
+            "$SRC_DIR/platform/exynos9820/patches/audio"|"$SRC_DIR/platform/exynos9820/patches/vendor"|"$SRC_DIR/platform/exynos9820/patches/hrm")
+                python3 "$SRC_DIR/scripts/utils/s10_asset_destination_policy.py" \
+                    "$MODPATH" "$WORK_DIR" "$SRC_DIR" || return 1
+                ;;
+            # User request: no KernelSU Next preload on this S10 port. Scoped to
+            # beyond1lte only -- other targets still ship this module unmodified.
+            "$SRC_DIR/unica/mods/preload")
+                return 0
+                ;;
+        esac
+    fi
+
     if [ ! -f "$MODPATH/module.prop" ]; then
         LOGE "File not found: ${MODPATH//$SRC_DIR\//}/module.prop"
         return 1
@@ -118,8 +132,20 @@ elif [ ! -d "$1" ]; then
     exit 1
 fi
 
-while IFS= read -r f; do
+# Resolve the complete list before applying any module. A failed find must not
+# masquerade as an empty, successfully applied module group.
+MODULE_LIST="$(mktemp "$OUT_DIR/module-list.XXXXXX")" || exit 1
+trap 'rm -f "$MODULE_LIST"' EXIT
+if ! (
+    set -o pipefail
+    find "$1" -mindepth 1 -maxdepth 1 -type d -print0 | LC_ALL=C sort -z > "$MODULE_LIST"
+); then
+    exit 1
+fi
+while IFS= read -r -d '' f; do
+    # Do not put this function in an OR-list: its existing customize scripts
+    # depend on errexit. Operation-level failure checks remain necessary.
     APPLY_MODULE "$f"
-done < <(find "$1" -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort)
+done < "$MODULE_LIST"
 
 exit 0

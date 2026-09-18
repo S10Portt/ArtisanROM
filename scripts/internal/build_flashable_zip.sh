@@ -3,15 +3,31 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # [
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    source "$SRC_DIR/scripts/utils/s10_inputs.sh" || exit 1
+    CHECK_S10_ZIP_INPUTS || exit 1
+    python3 "$SRC_DIR/scripts/utils/s10_installer_guard.py" "$SRC_DIR" || exit 1
+    S10_ZIP_WORK_HASH="$(python3 "$SRC_DIR/scripts/utils/s10_tree_hash.py" work "" "$WORK_DIR")" || exit 1
+fi
 source "$SRC_DIR/scripts/utils/build_utils.sh" || exit 1
 
 SOURCE_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$SOURCE_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$SOURCE_FIRMWARE")"
 TARGET_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$TARGET_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$TARGET_FIRMWARE")"
 
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    S10_IDENTITIES="$(python3 "$SRC_DIR/scripts/utils/s10_fingerprint.py" "$FW_DIR")" || exit 1
+    while IFS=$'\t' read -r S10_ID_NAME S10_ID_VALUE; do
+        case "$S10_ID_NAME" in SOURCE_FINGERPRINT|TARGET_FINGERPRINT) ;;
+            *) LOGE "Unexpected S10 fingerprint output"; exit 1 ;; esac
+        printf -v "$S10_ID_NAME" '%s' "$S10_ID_VALUE" || exit 1
+    done <<< "$S10_IDENTITIES"
+    unset S10_IDENTITIES S10_ID_NAME S10_ID_VALUE
+else
 SOURCE_FINGERPRINT="$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/build.prop" "ro.system.build.fingerprint")"
 SOURCE_FINGERPRINT="${SOURCE_FINGERPRINT//$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/build.prop" "ro.build.product")/$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.product.vendor.device")}"
 TARGET_FINGERPRINT="$(GET_PROP "$FW_DIR/$TARGET_FIRMWARE_PATH/system/system/build.prop" "ro.system.build.fingerprint")"
 TARGET_FINGERPRINT="${TARGET_FINGERPRINT//$(GET_PROP "$FW_DIR/$TARGET_FIRMWARE_PATH/system/system/build.prop" "ro.build.product")/$(GET_PROP "$FW_DIR/$TARGET_FIRMWARE_PATH/vendor/build.prop" "ro.product.vendor.device")}"
+fi
 
 TMP_DIR="$OUT_DIR/zip"
 
@@ -87,6 +103,12 @@ BUILD_SUPER_EMPTY()
 GENERATE_BUILD_INFO()
 {
     local BUILD_INFO_FILE="$TMP_DIR/build_info.txt"
+
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        python3 "$SRC_DIR/scripts/utils/s10_ota_properties.py" "$WORK_DIR/system/system/build.prop" \
+            --build-info "$ROM_VERSION" "$ROM_BUILD_TIMESTAMP" > "$BUILD_INFO_FILE" || exit 1
+        return 0
+    fi
 
     {
         echo "device=$TARGET_CODENAME"
@@ -207,15 +229,28 @@ GENERATE_OTA_METADATA()
 
     local INCREMENTAL
     local RELEASE
+    local SDK
     local SECURITY_PATCH_LEVEL
     local TIMESTAMP
 
-    INCREMENTAL="$(GET_PROP "system" "ro.build.version.incremental")"
-    RELEASE="$(GET_PROP "system" "ro.build.version.release")"
-    SECURITY_PATCH_LEVEL="$(GET_PROP "system" "ro.build.version.security_patch")"
-    TIMESTAMP="$(GET_PROP "system" "ro.build.date.utc")"
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        local S10_OTA_FIELDS S10_OTA_NAME S10_OTA_VALUE
+        S10_OTA_FIELDS="$(python3 "$SRC_DIR/scripts/utils/s10_ota_properties.py" \
+            "$WORK_DIR/system/system/build.prop")" || exit 1
+        while IFS=$'\t' read -r S10_OTA_NAME S10_OTA_VALUE; do
+            case "$S10_OTA_NAME" in INCREMENTAL|SDK|SECURITY_PATCH_LEVEL|TIMESTAMP) ;;
+                *) LOGE "Unexpected S10 OTA field"; exit 1 ;; esac
+            printf -v "$S10_OTA_NAME" '%s' "$S10_OTA_VALUE" || exit 1
+        done <<< "$S10_OTA_FIELDS"
+    else
+        INCREMENTAL="$(GET_PROP "system" "ro.build.version.incremental")"
+        RELEASE="$(GET_PROP "system" "ro.build.version.release")"
+        SDK="$RELEASE"
+        SECURITY_PATCH_LEVEL="$(GET_PROP "system" "ro.build.version.security_patch")"
+        TIMESTAMP="$(GET_PROP "system" "ro.build.date.utc")"
+    fi
 
-    mkdir -p "$TMP_DIR/META-INF/com/android"
+    mkdir -p "$TMP_DIR/META-INF/com/android" || exit 1
 
     # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/ota_utils.py#259
     if [ -f "$PROTO_FILE" ]; then
@@ -227,7 +262,7 @@ GENERATE_OTA_METADATA()
         MESSAGE+=", build: \\\"$SOURCE_FINGERPRINT\\\""
         MESSAGE+=", build_incremental: \\\"$INCREMENTAL\\\""
         MESSAGE+=", timestamp: $TIMESTAMP"
-        MESSAGE+=", sdk_level: \\\"$RELEASE\\\""
+        MESSAGE+=", sdk_level: \\\"$SDK\\\""
         MESSAGE+=", security_patch_level: \\\"$SECURITY_PATCH_LEVEL\\\"}"
 
         EVAL "protoc --encode=build.tools.releasetools.OtaMetadata --proto_path=\"$(dirname "$PROTO_FILE")\" \"$PROTO_FILE\" <<< \"$MESSAGE\" > \"$TMP_DIR/META-INF/com/android/metadata.pb\"" || exit 1
@@ -239,11 +274,11 @@ GENERATE_OTA_METADATA()
         echo "ota-type=BLOCK"
         echo "post-build=$SOURCE_FINGERPRINT"
         echo "post-build-incremental=$INCREMENTAL"
-        echo "post-sdk-level=$RELEASE"
+        echo "post-sdk-level=$SDK"
         echo "post-security-patch-level=$SECURITY_PATCH_LEVEL"
         echo "post-timestamp=$TIMESTAMP"
         echo "pre-device=$TARGET_CODENAME"
-    } > "$TMP_DIR/META-INF/com/android/metadata"
+    } > "$TMP_DIR/META-INF/com/android/metadata" || exit 1
 }
 
 GENERATE_UPDATER_SCRIPT()
@@ -252,11 +287,16 @@ GENERATE_UPDATER_SCRIPT()
     local BROTLI_EXTENSION
     $DEBUG || BROTLI_EXTENSION=".br"
 
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        cp -a "$SRC_DIR/target/beyond1lte/installer/layout-preflight.sh" "$TMP_DIR/layout-preflight.sh" || exit 1
+    fi
+
     local PARTITION_COUNT=0
     local HAS_UP_PARAM=false
     local HAS_LK3RD=false
     local HAS_BOOT=false
     local HAS_DTBO=false
+    local HAS_DTB=false
     local HAS_INIT_BOOT=false
     local HAS_VENDOR_BOOT=false
     local HAS_SUPER_EMPTY=false
@@ -273,6 +313,9 @@ GENERATE_UPDATER_SCRIPT()
     [ -f "$TMP_DIR/lk3rd.img" ] && HAS_LK3RD=true
     [ -f "$TMP_DIR/boot.img" ] && HAS_BOOT=true
     [ -f "$TMP_DIR/dtbo.img" ] && HAS_DTBO=true
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]] && [ -f "$TMP_DIR/dtb.img" ]; then
+        HAS_DTB=true
+    fi
     [ -f "$TMP_DIR/init_boot.img" ] && HAS_INIT_BOOT=true
     [ -f "$TMP_DIR/vendor_boot.img" ] && HAS_VENDOR_BOOT=true
     [ -f "$TMP_DIR/unsparse_super_empty.img" ] && HAS_SUPER_EMPTY=true
@@ -286,6 +329,9 @@ GENERATE_UPDATER_SCRIPT()
     [ -f "$TMP_DIR/system_dlkm.new.dat${BROTLI_EXTENSION}" ] && HAS_SYSTEM_DLKM=true && PARTITION_COUNT=$((PARTITION_COUNT + 1))
 
     {
+        if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+            cat "$SRC_DIR/target/beyond1lte/installer/assertions.edify" || exit 1
+        fi
         if [ -n "$TARGET_ASSERT_MODEL" ]; then
             IFS=':' read -r -a TARGET_ASSERT_MODEL <<< "$TARGET_ASSERT_MODEL"
             for i in "${TARGET_ASSERT_MODEL[@]}"; do
@@ -304,29 +350,49 @@ GENERATE_UPDATER_SCRIPT()
             echo    '\" devices; this is a \"" + getprop("ro.product.device") + "\".");'
         fi
 
-        if [ -f "$SRC_DIR/target/$TARGET_CODENAME/installer/assertions.edify" ]; then
-            cat "$SRC_DIR/target/$TARGET_CODENAME/installer/assertions.edify"
+        if [[ "$TARGET_CODENAME" != "beyond1lte" ]] && [ -f "$SRC_DIR/target/$TARGET_CODENAME/installer/assertions.edify" ]; then
+            cat "$SRC_DIR/target/$TARGET_CODENAME/installer/assertions.edify" || exit 1
+        fi
+
+        if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+            # Confirms the attached device's actual system/vendor/product/boot/
+            # dtb/dtbo partition byte sizes match this build's assumed
+            # user-repartition-20260913 profile before any block_image_update()
+            # writes -- see target/beyond1lte/installer/layout-preflight.sh.
+            echo    'ui_print("Checking partition layout...");'
+            echo    'package_extract_file("layout-preflight.sh", "/tmp/layout-preflight.sh");'
+            echo    'set_metadata("/tmp/layout-preflight.sh", "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0755);'
+            echo    'assert(run_program("/tmp/layout-preflight.sh") == "0");'
         fi
 
         PRINT_HEADER
 
-        # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/common.py#4007
-        echo -e "\n# --- Start patching dynamic partitions ---\n\n"
-        echo -e "# Update dynamic partition metadata\n"
-        echo -n 'assert(update_dynamic_partitions(package_extract_file("dynamic_partitions_op_list")'
-        if $HAS_SUPER_EMPTY; then
-            # https://github.com/LineageOS/android_build/commit/98549f6893c3a93057e2d4cdd1015a93e9473b16
-            # https://github.com/LineageOS/android_bootable_deprecated-ota/commit/e97be4333bd3824b8561c9637e9e6de28bc29da0
-            echo -n ', package_extract_file("unsparse_super_empty.img")'
+        if [ "$TARGET_SUPER_PARTITION_SIZE" -ne 0 ]; then
+            # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/common.py#4007
+            echo -e "\n# --- Start patching dynamic partitions ---\n\n"
+            echo -e "# Update dynamic partition metadata\n"
+            echo -n 'assert(update_dynamic_partitions(package_extract_file("dynamic_partitions_op_list")'
+            if $HAS_SUPER_EMPTY; then
+                # https://github.com/LineageOS/android_build/commit/98549f6893c3a93057e2d4cdd1015a93e9473b16
+                # https://github.com/LineageOS/android_bootable_deprecated-ota/commit/e97be4333bd3824b8561c9637e9e6de28bc29da0
+                echo -n ', package_extract_file("unsparse_super_empty.img")'
+            fi
+            echo    '));'
         fi
-        echo    '));'
         if $HAS_SYSTEM; then
             echo -e "\n# Patch partition system\n"
             echo    'ui_print("Patching system image unconditionally...");'
             echo -n 'show_progress(0.'
             echo -n "$(bc -l <<< "9 - $PARTITION_COUNT")"
             echo    '00000, 0);'
-            echo -n 'block_image_update(map_partition("system"), package_extract_file("system.transfer.list"), "'
+            if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+                echo -n 'block_image_update("'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH/system"
+                echo -n '", '
+            else
+                echo -n 'block_image_update(map_partition("system"), '
+            fi
+            echo -n 'package_extract_file("system.transfer.list"), "'
             echo -n "system.new.dat${BROTLI_EXTENSION}"
             echo    '", "system.patch.dat") ||'
             echo    '  abort("E1001: Failed to update system image.");'
@@ -335,7 +401,14 @@ GENERATE_UPDATER_SCRIPT()
             echo -e "\n# Patch partition vendor\n"
             echo    'ui_print("Patching vendor image unconditionally...");'
             echo    'show_progress(0.100000, 0);'
-            echo -n 'block_image_update(map_partition("vendor"), package_extract_file("vendor.transfer.list"), "'
+            if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+                echo -n 'block_image_update("'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH/vendor"
+                echo -n '", '
+            else
+                echo -n 'block_image_update(map_partition("vendor"), '
+            fi
+            echo -n 'package_extract_file("vendor.transfer.list"), "'
             echo -n "vendor.new.dat${BROTLI_EXTENSION}"
             echo    '", "vendor.patch.dat") ||'
             echo    '  abort("E2001: Failed to update vendor image.");'
@@ -344,7 +417,14 @@ GENERATE_UPDATER_SCRIPT()
             echo -e "\n# Patch partition product\n"
             echo    'ui_print("Patching product image unconditionally...");'
             echo    'show_progress(0.100000, 0);'
-            echo -n 'block_image_update(map_partition("product"), package_extract_file("product.transfer.list"), "'
+            if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+                echo -n 'block_image_update("'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH/product"
+                echo -n '", '
+            else
+                echo -n 'block_image_update(map_partition("product"), '
+            fi
+            echo -n 'package_extract_file("product.transfer.list"), "'
             echo -n "product.new.dat${BROTLI_EXTENSION}"
             echo    '", "product.patch.dat") ||'
             echo    '  abort("E2001: Failed to update product image.");'
@@ -353,7 +433,14 @@ GENERATE_UPDATER_SCRIPT()
             echo -e "\n# Patch partition system_ext\n"
             echo    'ui_print("Patching system_ext image unconditionally...");'
             echo    'show_progress(0.100000, 0);'
-            echo -n 'block_image_update(map_partition("system_ext"), package_extract_file("system_ext.transfer.list"), "'
+            if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+                echo -n 'block_image_update("'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH/system_ext"
+                echo -n '", '
+            else
+                echo -n 'block_image_update(map_partition("system_ext"), '
+            fi
+            echo -n 'package_extract_file("system_ext.transfer.list"), "'
             echo -n "system_ext.new.dat${BROTLI_EXTENSION}"
             echo    '", "system_ext.patch.dat") ||'
             echo    '  abort("E2001: Failed to update system_ext image.");'
@@ -362,7 +449,14 @@ GENERATE_UPDATER_SCRIPT()
             echo -e "\n# Patch partition odm\n"
             echo    'ui_print("Patching odm image unconditionally...");'
             echo    'show_progress(0.100000, 0);'
-            echo -n 'block_image_update(map_partition("odm"), package_extract_file("odm.transfer.list"), "'
+            if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+                echo -n 'block_image_update("'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH/odm"
+                echo -n '", '
+            else
+                echo -n 'block_image_update(map_partition("odm"), '
+            fi
+            echo -n 'package_extract_file("odm.transfer.list"), "'
             echo -n "odm.new.dat${BROTLI_EXTENSION}"
             echo    '", "odm.patch.dat") ||'
             echo    '  abort("E2001: Failed to update odm image.");'
@@ -371,7 +465,14 @@ GENERATE_UPDATER_SCRIPT()
             echo -e "\n# Patch partition vendor_dlkm\n"
             echo    'ui_print("Patching vendor_dlkm image unconditionally...");'
             echo    'show_progress(0.100000, 0);'
-            echo -n 'block_image_update(map_partition("vendor_dlkm"), package_extract_file("vendor_dlkm.transfer.list"), "'
+            if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+                echo -n 'block_image_update("'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH/vendor_dlkm"
+                echo -n '", '
+            else
+                echo -n 'block_image_update(map_partition("vendor_dlkm"), '
+            fi
+            echo -n 'package_extract_file("vendor_dlkm.transfer.list"), "'
             echo -n "vendor_dlkm.new.dat${BROTLI_EXTENSION}"
             echo    '", "vendor_dlkm.patch.dat") ||'
             echo    '  abort("E2001: Failed to update vendor_dlkm image.");'
@@ -380,7 +481,14 @@ GENERATE_UPDATER_SCRIPT()
             echo -e "\n# Patch partition odm_dlkm\n"
             echo    'ui_print("Patching odm_dlkm image unconditionally...");'
             echo    'show_progress(0.100000, 0);'
-            echo -n 'block_image_update(map_partition("odm_dlkm"), package_extract_file("odm_dlkm.transfer.list"), "'
+            if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+                echo -n 'block_image_update("'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH/odm_dlkm"
+                echo -n '", '
+            else
+                echo -n 'block_image_update(map_partition("odm_dlkm"), '
+            fi
+            echo -n 'package_extract_file("odm_dlkm.transfer.list"), "'
             echo -n "odm_dlkm.new.dat${BROTLI_EXTENSION}"
             echo    '", "odm_dlkm.patch.dat") ||'
             echo    '  abort("E2001: Failed to update odm_dlkm image.");'
@@ -389,17 +497,36 @@ GENERATE_UPDATER_SCRIPT()
             echo -e "\n# Patch partition system_dlkm\n"
             echo    'ui_print("Patching system_dlkm image unconditionally...");'
             echo    'show_progress(0.100000, 0);'
-            echo -n 'block_image_update(map_partition("system_dlkm"), package_extract_file("system_dlkm.transfer.list"), "'
+            if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+                echo -n 'block_image_update("'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH/system_dlkm"
+                echo -n '", '
+            else
+                echo -n 'block_image_update(map_partition("system_dlkm"), '
+            fi
+            echo -n 'package_extract_file("system_dlkm.transfer.list"), "'
             echo -n "system_dlkm.new.dat${BROTLI_EXTENSION}"
             echo    '", "system_dlkm.patch.dat") ||'
             echo    '  abort("E2001: Failed to update system_dlkm image.");'
         fi
         echo -e "\n# --- End patching dynamic partitions ---\n"
+        if $HAS_DTB; then
+            echo    'ui_print("Installing dtb image...");'
+            echo -n 'assert(package_extract_file("dtb.img", "'
+            echo -n "$TARGET_OS_BOOT_DEVICE_PATH"
+            echo    '/dtb"));'
+        fi
         if $HAS_DTBO; then
             echo    'ui_print("Full Patching dtbo.img img...");'
-            echo -n 'package_extract_file("dtbo.img", "'
-            echo -n "$TARGET_OS_BOOT_DEVICE_PATH"
-            echo    '/dtbo");'
+            if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+                echo -n 'assert(package_extract_file("dtbo.img", "'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH"
+                echo    '/dtbo"));'
+            else
+                echo -n 'package_extract_file("dtbo.img", "'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH"
+                echo    '/dtbo");'
+            fi
         fi
         if $HAS_INIT_BOOT; then
             echo    'ui_print("Full Patching init_boot.img img...");'
@@ -428,9 +555,15 @@ GENERATE_UPDATER_SCRIPT()
         fi
         if ! $HAS_LK3RD && $HAS_BOOT; then
             echo    'ui_print("Installing boot image...");'
-            echo -n 'package_extract_file("boot.img", "'
-            echo -n "$TARGET_OS_BOOT_DEVICE_PATH"
-            echo    '/boot");'
+            if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+                echo -n 'assert(package_extract_file("boot.img", "'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH"
+                echo    '/boot"));'
+            else
+                echo -n 'package_extract_file("boot.img", "'
+                echo -n "$TARGET_OS_BOOT_DEVICE_PATH"
+                echo    '/boot");'
+            fi
         fi
         if $HAS_UP_PARAM; then
             echo    'ui_print("Installing up_param image...");'
@@ -440,13 +573,13 @@ GENERATE_UPDATER_SCRIPT()
         fi
 
         if [ -f "$SRC_DIR/target/$TARGET_CODENAME/installer/install-end.edify" ]; then
-            cat "$SRC_DIR/target/$TARGET_CODENAME/installer/install-end.edify"
+            cat "$SRC_DIR/target/$TARGET_CODENAME/installer/install-end.edify" || exit 1
         fi
 
         echo    'set_progress(1.000000);'
         echo    'ui_print("****************************************");'
         echo    'ui_print(" ");'
-    } > "$SCRIPT_FILE"
+    } > "$SCRIPT_FILE" || exit 1
 }
 
 GET_SUPER_GROUP_SIZE()
@@ -468,6 +601,9 @@ PRINT_HEADER()
     local MINOR
     local PATCH
 
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        ONEUI_VERSION="$(python3 "$SRC_DIR/scripts/utils/s10_property_consumers.py" oneui "$WORK_DIR")" || exit 1
+    else
     ONEUI_VERSION="$(GET_PROP "system" "ro.build.version.oneui")"
     MAJOR=$(bc -l <<< "scale=0; $ONEUI_VERSION / 10000")
     MINOR=$(bc -l <<< "scale=0; $ONEUI_VERSION % 10000 / 100")
@@ -476,6 +612,7 @@ PRINT_HEADER()
         ONEUI_VERSION="$MAJOR.$MINOR.$PATCH"
     else
         ONEUI_VERSION="$MAJOR.$MINOR"
+    fi
     fi
 
     echo    'ui_print(" ");'
@@ -534,27 +671,69 @@ SIGN_IMAGE_WITH_AVB()
 # ]
 
 [ -d "$TMP_DIR" ] && rm -rf "$TMP_DIR"
-mkdir -p "$TMP_DIR/META-INF/com/google/android"
-cp -a "$SRC_DIR/prebuilts/bootable/deprecated-ota/updater" "$TMP_DIR/META-INF/com/google/android/update-binary"
+mkdir -p "$TMP_DIR/META-INF/com/google/android" "$TMP_DIR/image-metadata" || exit 1
+cp -a "$SRC_DIR/prebuilts/bootable/deprecated-ota/updater" "$TMP_DIR/META-INF/com/google/android/update-binary" || exit 1
 
 LOG_STEP_IN "- Building OS partitions"
-while IFS= read -r f; do
+find "$WORK_DIR" -maxdepth 1 -type d -print0 > "$TMP_DIR/image-metadata/.os-list" || exit 1
+while IFS= read -r -d '' f; do
     PARTITION=$(basename "$f")
     IS_VALID_PARTITION_NAME "$PARTITION" || continue
 
+    if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+        SIZE_VAR="TARGET_$(tr "[:lower:]" "[:upper:]" <<< "$PARTITION")_PARTITION_SIZE"
+        if [[ ! "${!SIZE_VAR}" =~ ^[1-9][0-9]*$ ]]; then
+            LOGE "$SIZE_VAR must contain the measured static partition size in bytes"
+            exit 1
+        fi
+    fi
+
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        [[ "$TARGET_OS_FILE_SYSTEM_TYPE" == "erofs" ]] || { LOGE "S10 requires the selected EROFS OS policy"; exit 1; }
+        case "$PARTITION" in
+            system|vendor|product) ;;
+            *) LOGE "S10 auxiliary partition image requires a separate approved filesystem policy: $PARTITION"; exit 1 ;;
+        esac
+    fi
+
+    # Image-specific metadata additions must not mutate the approved work cache.
+    mkdir -p "$TMP_DIR/image-metadata" || exit 1
+    cp -p "$WORK_DIR/configs/file_context-$PARTITION" "$TMP_DIR/image-metadata/file_context-$PARTITION" || exit 1
+    cp -p "$WORK_DIR/configs/fs_config-$PARTITION" "$TMP_DIR/image-metadata/fs_config-$PARTITION" || exit 1
     "$SRC_DIR/scripts/build_fs_image.sh" "$TARGET_OS_FILE_SYSTEM_TYPE" \
         -o "$TMP_DIR/$PARTITION.img" -m -S \
-        "$WORK_DIR/$PARTITION" "$WORK_DIR/configs/file_context-$PARTITION" "$WORK_DIR/configs/fs_config-$PARTITION" || exit 1
-done < <(find "$WORK_DIR" -maxdepth 1 -type d)
+        "$WORK_DIR/$PARTITION" "$TMP_DIR/image-metadata/file_context-$PARTITION" "$TMP_DIR/image-metadata/fs_config-$PARTITION" || exit 1
+
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        python3 "$SRC_DIR/scripts/utils/s10_erofs.py" "$TMP_DIR/$PARTITION.img" \
+            --max-bytes "${!SIZE_VAR}" || exit 1
+    fi
+
+    if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+        IMAGE_SIZE="$(GET_IMAGE_SIZE "$TMP_DIR/$PARTITION.img")" || exit 1
+        if [[ ! "$IMAGE_SIZE" =~ ^[1-9][0-9]*$ ]]; then
+            LOGE "Could not determine the expanded size of $PARTITION.img"
+            exit 1
+        fi
+        if [ "$IMAGE_SIZE" -gt "${!SIZE_VAR}" ]; then
+            LOGE "$PARTITION image exceeds $SIZE_VAR (${!SIZE_VAR} bytes)"
+            exit 1
+        fi
+    fi
+
+done < "$TMP_DIR/image-metadata/.os-list"
 LOG_STEP_OUT
 
-LOG "- Building unsparse_super_empty.img"
-BUILD_SUPER_EMPTY
+if [ "$TARGET_SUPER_PARTITION_SIZE" -ne 0 ]; then
+    LOG "- Building unsparse_super_empty.img"
+    BUILD_SUPER_EMPTY
 
-LOG "- Generating dynamic_partitions_op_list"
-GENERATE_OP_LIST
+    LOG "- Generating dynamic_partitions_op_list"
+    GENERATE_OP_LIST
+fi
 
-while IFS= read -r f; do
+find "$TMP_DIR" -maxdepth 1 -type f -name "*.img" -print0 > "$TMP_DIR/image-metadata/.image-list" || exit 1
+while IFS= read -r -d '' f; do
     PARTITION="$(basename "$f" | sed "s/.img//g")"
     IS_VALID_PARTITION_NAME "$PARTITION" || continue
 
@@ -568,28 +747,63 @@ while IFS= read -r f; do
         EVAL "brotli --quality=6 --output=\"$TMP_DIR/$PARTITION.new.dat.br\" \"$TMP_DIR/$PARTITION.new.dat\"" || exit 1
         rm -f "$TMP_DIR/$PARTITION.new.dat"
     fi
-done < <(find "$TMP_DIR" -maxdepth 1 -type f -name "*.img")
+done < "$TMP_DIR/image-metadata/.image-list"
 
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    CHECK_S10_KERNEL_SET "$WORK_DIR/kernel" || exit 1
+fi
 if [ -d "$WORK_DIR/kernel" ]; then
-    while IFS= read -r f; do
+    find "$WORK_DIR/kernel" -maxdepth 1 -type f -name "*.img" -print0 > "$TMP_DIR/image-metadata/.kernel-list" || exit 1
+    while IFS= read -r -d '' f; do
         IMG="$(basename "$f")"
 
         LOG_STEP_IN "- Copying $IMG"
 
-        cp -a "$WORK_DIR/kernel/$IMG" "$TMP_DIR/$IMG"
+        cp -a "$WORK_DIR/kernel/$IMG" "$TMP_DIR/$IMG" || exit 1
+
+        if [[ "$TARGET_CODENAME" == "beyond1lte" && "$IMG" == "dtb.img" ]]; then
+            if [[ ! "$TARGET_DTB_PARTITION_SIZE" =~ ^[1-9][0-9]*$ ]]; then
+                LOGE "TARGET_DTB_PARTITION_SIZE must contain the measured DTB partition size"
+                exit 1
+            fi
+            DTB_IMAGE_SIZE="$(GET_IMAGE_SIZE "$TMP_DIR/$IMG")" || exit 1
+            if [[ ! "$DTB_IMAGE_SIZE" =~ ^[1-9][0-9]*$ ]] ||
+                    [ "$DTB_IMAGE_SIZE" -gt "$TARGET_DTB_PARTITION_SIZE" ]; then
+                LOGE "Invalid or oversized beyond1lte DTB image"
+                exit 1
+            fi
+        fi
 
         if ! $TARGET_DISABLE_AVB_SIGNING; then
             SIGN_IMAGE_WITH_AVB "$TMP_DIR/$IMG"
         fi
 
+        # AVB may append data. Check the final image, not just its input size.
+        if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+            case "$IMG" in
+                boot.img) KERNEL_LIMIT="$TARGET_BOOT_PARTITION_SIZE" ;;
+                dtb.img) KERNEL_LIMIT="$TARGET_DTB_PARTITION_SIZE" ;;
+                dtbo.img) KERNEL_LIMIT="$TARGET_DTBO_PARTITION_SIZE" ;;
+                *) LOGE "Unexpected S10 kernel image: $IMG"; exit 1 ;;
+            esac
+            KERNEL_IMAGE_SIZE="$(GET_IMAGE_SIZE "$TMP_DIR/$IMG")" || exit 1
+            if [[ ! "$KERNEL_LIMIT" =~ ^[1-9][0-9]*$ ||
+                    ! "$KERNEL_IMAGE_SIZE" =~ ^[1-9][0-9]*$ ]] ||
+                    [ "$KERNEL_IMAGE_SIZE" -gt "$KERNEL_LIMIT" ]; then
+                LOGE "Invalid or oversized final S10 $IMG (limit: $KERNEL_LIMIT)"
+                exit 1
+            fi
+            unset KERNEL_LIMIT KERNEL_IMAGE_SIZE
+        fi
+
         LOG_STEP_OUT
-    done < <(find "$WORK_DIR/kernel" -maxdepth 1 -type f -name "*.img")
+    done < "$TMP_DIR/image-metadata/.kernel-list"
 fi
 
 
 if [ -f "$WORK_DIR/up_param.bin" ]; then
     LOG "- Copying up_param.bin"
-    cp -a "$WORK_DIR/up_param.bin" "$TMP_DIR/up_param.bin"
+    cp -a "$WORK_DIR/up_param.bin" "$TMP_DIR/up_param.bin" || exit 1
 fi
 
 LOG "- Generating updater-script"
@@ -614,6 +828,30 @@ if [ -f "$SRC_DIR/target/$TARGET_CODENAME/installer/customize.sh" ]; then
     LOG_STEP_OUT
 fi
 
+# Installer hooks run above and may change images. Recheck before packaging.
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    python3 "$SRC_DIR/scripts/utils/s10_installer_guard.py" "$SRC_DIR" "$TMP_DIR" || exit 1
+    python3 "$SRC_DIR/scripts/utils/s10_auxiliary_contract.py" package "$TMP_DIR" || exit 1
+    CHECK_S10_KERNEL_SET "$TMP_DIR" || exit 1
+    for KERNEL_PART in BOOT DTB DTBO; do
+        KERNEL_LIMIT_VAR="TARGET_${KERNEL_PART}_PARTITION_SIZE"
+        KERNEL_FINAL_SIZE="$(GET_IMAGE_SIZE "$TMP_DIR/${KERNEL_PART,,}.img")" || exit 1
+        if [[ ! "${!KERNEL_LIMIT_VAR}" =~ ^[1-9][0-9]*$ ||
+                ! "$KERNEL_FINAL_SIZE" =~ ^[1-9][0-9]*$ ]] ||
+                [ "$KERNEL_FINAL_SIZE" -gt "${!KERNEL_LIMIT_VAR}" ]; then
+            LOGE "Invalid final S10 ${KERNEL_PART,,}.img size after installer hooks"
+            exit 1
+        fi
+    done
+    unset KERNEL_PART KERNEL_LIMIT_VAR KERNEL_FINAL_SIZE
+    S10_ZIP_WORK_FINAL_HASH="$(python3 "$SRC_DIR/scripts/utils/s10_tree_hash.py" work "" "$WORK_DIR")" || exit 1
+    if [[ "$S10_ZIP_WORK_HASH" != "$S10_ZIP_WORK_FINAL_HASH" ]]; then
+        LOGE "S10 ZIP processing changed WORK_DIR; refusing to package or refresh its completion record"
+        exit 1
+    fi
+    unset S10_ZIP_WORK_HASH S10_ZIP_WORK_FINAL_HASH
+fi
+
 LOG "- Creating zip"
 EVAL "rm -f \"$TMP_DIR/rom.zip\"" || exit 1
 # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/common.py#3601
@@ -621,14 +859,22 @@ EVAL "rm -f \"$TMP_DIR/rom.zip\"" || exit 1
 # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/ota_utils.py#184
 # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/ota_utils.py#186
 EVAL "cd \"$TMP_DIR\" && 7z a -tzip -mx=0 -mmt=$(nproc) $TMP_DIR/rom.zip -r *.patch.dat -ir!META-INF/com/android/* -i!*.new.dat.br" || exit 1
-EVAL "cd \"$TMP_DIR\" && 7z a -tzip -mx=3 -mmt=$(nproc) $TMP_DIR/rom.zip -r * -xr!META-INF/com/android/* -x!*.new.dat.br -x!*.patch.dat -x!rom.zip" || exit 1
+EVAL "cd \"$TMP_DIR\" && 7z a -tzip -mx=3 -mmt=$(nproc) $TMP_DIR/rom.zip -r * -xr!META-INF/com/android/* -x!*.new.dat.br -x!*.patch.dat -x!rom.zip -xr!image-metadata" || exit 1
 
 if ! $DEBUG || $ROM_IS_OFFICIAL; then
     LOG "- Signing zip"
     EVAL "signapk -w \"$PUBLIC_KEY_PATH\" \"$PRIVATE_KEY_PATH\" \"$TMP_DIR/rom.zip\" \"$OUT_DIR/$ZIP_FILE_NAME\"" || exit 1
-    rm -f "$TMP_DIR/rom.zip"
+    rm -f "$TMP_DIR/rom.zip" || exit 1
 else
-    mv -f "$TMP_DIR/rom.zip" "$OUT_DIR/$ZIP_FILE_NAME"
+    mv -f "$TMP_DIR/rom.zip" "$OUT_DIR/$ZIP_FILE_NAME" || exit 1
+fi
+
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    # Preserve the actual metadata after image-generator adjustments, outside
+    # both the cleanup directory and the cache-approved work tree.
+    S10_PACKAGE_EVIDENCE="$(python3 "$SRC_DIR/scripts/utils/s10_package_evidence.py" \
+        "$TMP_DIR" "$OUT_DIR/$ZIP_FILE_NAME" "$OUT_DIR/package-evidence" "$WORK_DIR")" || exit 1
+    LOG "S10 packaging evidence: $S10_PACKAGE_EVIDENCE"
 fi
 
 exit 0

@@ -108,8 +108,12 @@ SMALI_PATCH()
         return 0
     fi
 
-    # Check if provided method is method and exists inside smali
-    if ! grep "^\.method.*" "$FILE_PATH/$SMALI" | grep -q -F -- "$METHOD" "$FILE_PATH/$SMALI"; then
+    # replaceall has no method argument. Other operations require one declaration,
+    # not an invocation/string mentioning the signature elsewhere in the file.
+    if [[ "$OPERATION" != "replaceall" ]] && ! awk -v signature="$METHOD" '
+        /^[[:space:]]*\.method[[:space:]]/ && $NF == signature { count++ }
+        END { exit (count != 1) }
+    ' "$FILE_PATH/$SMALI"; then
         LOGE "Method \"$METHOD\" not found in /$PARTITION/$FILE/$SMALI"
 
         local MATCHES
@@ -129,7 +133,7 @@ SMALI_PATCH()
     local BEFORE
     local AFTER
 
-    BEFORE="$(sha1sum "$FILE_PATH/$SMALI")"
+    BEFORE="$(sha1sum "$FILE_PATH/$SMALI")" || return 1
 
     # Remove the method completely
     if [[ "$OPERATION" == "strip" ]]; then
@@ -169,9 +173,9 @@ SMALI_PATCH()
                 print
             }
         ' "$FILE_PATH/$SMALI" > "$FILE_PATH/$SMALI.tmp" && \
-            mv "$FILE_PATH/$SMALI.tmp" "$FILE_PATH/$SMALI"
+            mv "$FILE_PATH/$SMALI.tmp" "$FILE_PATH/$SMALI" || return 1
 
-        AFTER="$(sha1sum "$FILE_PATH/$SMALI")"
+        AFTER="$(sha1sum "$FILE_PATH/$SMALI")" || return 1
         if [[ "$BEFORE" == "$AFTER" ]]; then
             LOGE "Failed to strip method \"$METHOD\" in /$PARTITION/$FILE/$SMALI"
             return 1
@@ -209,9 +213,9 @@ SMALI_PATCH()
             inside { next }
             { print }
         ' "$FILE_PATH/$SMALI" > "$FILE_PATH/$SMALI.tmp" && \
-            mv "$FILE_PATH/$SMALI.tmp" "$FILE_PATH/$SMALI"
+            mv "$FILE_PATH/$SMALI.tmp" "$FILE_PATH/$SMALI" || return 1
 
-        AFTER="$(sha1sum "$FILE_PATH/$SMALI")"
+        AFTER="$(sha1sum "$FILE_PATH/$SMALI")" || return 1
         if [[ "$BEFORE" == "$AFTER" ]]; then
             LOGE "Failed to nullify method \"$METHOD\" in /$PARTITION/$FILE/$SMALI"
             return 1
@@ -333,9 +337,9 @@ SMALI_PATCH()
             inside { next }
             { print }
         ' "$FILE_PATH/$SMALI" > "$FILE_PATH/$SMALI.tmp" && \
-            mv "$FILE_PATH/$SMALI.tmp" "$FILE_PATH/$SMALI"
+            mv "$FILE_PATH/$SMALI.tmp" "$FILE_PATH/$SMALI" || return 1
 
-        AFTER="$(sha1sum "$FILE_PATH/$SMALI")"
+        AFTER="$(sha1sum "$FILE_PATH/$SMALI")" || return 1
         if [[ "$BEFORE" == "$AFTER" ]]; then
             LOGE "Failed to replace return value of method \"$METHOD\" in /$PARTITION/$FILE/$SMALI to \"$VALUE\""
             return 1
@@ -371,9 +375,9 @@ SMALI_PATCH()
             inside && /^\.end method/ { inside = 0 }
             { print }
         ' "$FILE_PATH/$SMALI" > "$FILE_PATH/$SMALI.tmp" && \
-            mv "$FILE_PATH/$SMALI.tmp" "$FILE_PATH/$SMALI"
+            mv "$FILE_PATH/$SMALI.tmp" "$FILE_PATH/$SMALI" || return 1
 
-        AFTER="$(sha1sum "$FILE_PATH/$SMALI")"
+        AFTER="$(sha1sum "$FILE_PATH/$SMALI")" || return 1
         if [[ "$BEFORE" == "$AFTER" ]]; then
             LOGE "Failed to replace value \"$VALUE\" of method \"$METHOD\" in /$PARTITION/$FILE/$SMALI with \"$REPLACEMENT\""
             return 1
@@ -385,7 +389,7 @@ SMALI_PATCH()
 
         EVAL "sed -i \"s|$VALUE|$REPLACEMENT|g\" \"$FILE_PATH/${SMALI//$/\\$}\"" || return 1
 
-        AFTER="$(sha1sum "$FILE_PATH/$SMALI")"
+        AFTER="$(sha1sum "$FILE_PATH/$SMALI")" || return 1
         if [[ "$BEFORE" == "$AFTER" ]]; then
             LOGE "Failed to replace all occurrences of \"$VALUE\" with \"$REPLACEMENT\" in /$PARTITION/$FILE/$SMALI"
             return 1

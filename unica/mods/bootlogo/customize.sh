@@ -19,13 +19,19 @@ if [[ $TARGET_OS_SINGLE_SYSTEM_IMAGE == "essi" ]]; then
         # 3. Exact Match Logic
         if [ "$WIDTH" -eq 1440 ]; then
             LOG " Exact QHD (1440p) match. Applying bootlogo."
-            cp -a "$SRC_DIR/unica/mods/bootlogo/up_param_1440p.bin" "$WORK_DIR/up_param.bin"
+            if [[ "$TARGET_CODENAME" != "beyond1lte" ]]; then
+                cp -a "$SRC_DIR/unica/mods/bootlogo/up_param_1440p.bin" "$WORK_DIR/up_param.bin" || return 1
+            else
+                LOG "S10 retains the installed up_param; OS boot animations are separate"
+            fi
 	    ADD_TO_WORK_DIR "e2sxxx" "system" "system/media/bootsamsung.qmg"
 	    ADD_TO_WORK_DIR "e2sxxx" "system" "system/media/bootsamsungloop.qmg"
 	    ADD_TO_WORK_DIR "e2sxxx" "system" "system/media/shutdown.qmg"
         elif [ "$WIDTH" -eq 1080 ]; then
             LOG " Exact FHD (1080p) match. Applying bootlogo."
-            cp -a "$SRC_DIR/unica/mods/bootlogo/up_param_1080p.bin" "$WORK_DIR/up_param.bin"
+            if [[ "$TARGET_CODENAME" != "beyond1lte" ]]; then
+                cp -a "$SRC_DIR/unica/mods/bootlogo/up_param_1080p.bin" "$WORK_DIR/up_param.bin" || return 1
+            fi
         else
             LOGW "  ! Detected resolution ${WIDTH}x${HEIGHT} is non-standard. Skipping custom up_param."
         fi

@@ -158,30 +158,44 @@ GET_FLOATING_FEATURE_CONFIG()
 # Applies the supplied hex patch to the desidered file.
 HEX_PATCH()
 {
-    _CHECK_NON_EMPTY_PARAM "FILE" "$1" || return 1
-    _CHECK_NON_EMPTY_PARAM "FROM" "$2" || return 1
-    _CHECK_NON_EMPTY_PARAM "TO" "$3" || return 1
+    _CHECK_NON_EMPTY_PARAM "FILE" "$1" || return 2
+    _CHECK_NON_EMPTY_PARAM "FROM" "$2" || return 2
+    _CHECK_NON_EMPTY_PARAM "TO" "$3" || return 2
 
     local FILE="$1"
     local FROM="$2"
     local TO="$3"
 
-    if [ ! -f "$FILE" ]; then
-        LOGE "File not found: ${FILE//$WORK_DIR/}"
-        return 1
+    # Return 1 only for an absent pattern; operational failures return 2.
+    if [[ ! -f "$FILE" || ! -r "$FILE" || -L "$FILE" ]]; then
+        LOGE "Invalid hex patch input: ${FILE//$WORK_DIR/}"
+        return 2
     fi
-
-    FROM="$(tr "[:upper:]" "[:lower:]" <<< "$FROM")"
-    TO="$(tr "[:upper:]" "[:lower:]" <<< "$TO")"
-
-    if ! xxd -p -c 0 "$FILE" | grep -q "$FROM"; then
+    FROM="${FROM,,}"
+    TO="${TO,,}"
+    if [[ ! "$FROM" =~ ^([0-9a-f]{2})+$ || ! "$TO" =~ ^([0-9a-f]{2})+$ ]]; then
+        LOGE "Invalid hex patch pattern"
+        return 2
+    fi
+    local HEX_DATA PATCH_TMP
+    HEX_DATA="$(xxd -p -c 0 "$FILE")" || return 2
+    if [[ "$HEX_DATA" != *"$FROM"* ]]; then
         LOGE "No \"$FROM\" match in ${FILE//$WORK_DIR/}"
         return 1
     fi
-
     LOG "- Patching \"$FROM\" to \"$TO\" in ${FILE//$WORK_DIR/}"
-    xxd -p -c 0 "$FILE" | sed "s/$FROM/$TO/" | xxd -r -p > "$FILE.tmp"
-    mv "$FILE.tmp" "$FILE"
+    PATCH_TMP="$(mktemp "$FILE.patch.XXXXXX")" || return 2
+    if ! (
+        set -o pipefail
+        printf '%s' "$HEX_DATA" | sed "s/$FROM/$TO/" | xxd -r -p > "$PATCH_TMP"
+    ); then
+        rm -f "$PATCH_TMP"
+        return 2
+    fi
+    if ! chmod --reference="$FILE" "$PATCH_TMP" || ! mv -f "$PATCH_TMP" "$FILE"; then
+        rm -f "$PATCH_TMP"
+        return 2
+    fi
 
     return 0
 }

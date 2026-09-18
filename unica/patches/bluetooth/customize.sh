@@ -1,5 +1,17 @@
 SOURCE_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$SOURCE_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$SOURCE_FIRMWARE")"
 
+# An unknown APEX must not silently skip S10 compatibility patches.
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    BT_WORK_HASH="$(sha256sum "$WORK_DIR/system/system/apex/com.android.bt.apex")" || return 1
+    BT_SOURCE_HASH="$(sha256sum "$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/apex/com.android.bt.apex")" || return 1
+    if [[ "${BT_WORK_HASH%% *}" != "${BT_SOURCE_HASH%% *}" ]]; then
+        LOGE "Unknown S10 Bluetooth APEX input; a patched result has not been verified"
+        unset BT_WORK_HASH BT_SOURCE_HASH SOURCE_FIRMWARE_PATH
+        return 1
+    fi
+    unset BT_WORK_HASH BT_SOURCE_HASH
+fi
+
 if [[ "$(sha1sum "$WORK_DIR/system/system/apex/com.android.bt.apex" | cut -d " " -f 1)" != \
         "$(sha1sum "$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/apex/com.android.bt.apex" | cut -d " " -f 1)" ]]; then
     LOG "\033[0;33m! Nothing to do\033[0m"
@@ -127,6 +139,11 @@ LOG_MISSING_PATCHES()
 {
     local MESSAGE="Missing SPF patches for condition ($1: [${!1}], $2: [${!2}])"
 
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        LOGE "${MESSAGE}. Required S10 compatibility patch is unavailable"
+        exit 1
+    fi
+
     if $DEBUG; then
         LOGW "$MESSAGE"
     else
@@ -171,7 +188,14 @@ DECODE_APEX "$WORK_DIR/system/system/apex/com.android.bt.apex"
 EXTRACT_PAYLOAD
 
 # === V. Dynamic script ===
-BT_APK_FULL_PATH=$(echo $TMP_DIR/unknown/apex_payload/app/Bluetooth@*/Bluetooth.apk)
+BT_APK_CANDIDATES=("$TMP_DIR"/unknown/apex_payload/app/Bluetooth@*/Bluetooth.apk)
+if [[ "${#BT_APK_CANDIDATES[@]}" -ne 1 ]] || [ ! -f "${BT_APK_CANDIDATES[0]}" ]; then
+    LOGE "Expected exactly one Bluetooth@*/Bluetooth.apk in the APEX payload"
+    unset BT_APK_CANDIDATES
+    return 1
+fi
+BT_APK_FULL_PATH="${BT_APK_CANDIDATES[0]}"
+unset BT_APK_CANDIDATES
 BT_FOLDER=$(basename "$(dirname "$BT_APK_FULL_PATH")")
 # ========================
 
@@ -251,10 +275,18 @@ fi
 # Before: [tbnz w8, #0, #0xXXXXXX]
 # After: [b #0xXXXXXX]
 LOG "- Patching \"00122a0140395f01086b00020054\" to \"00122a0140395f01086bde030014\" in apex_payload/lib64/libbluetooth_jni.so"
+BT_HEX_STATUS=0
 HEX_PATCH "$TMP_DIR/unknown/apex_payload/lib64/libbluetooth_jni.so" \
-    "00122a0140395f01086b00020054" "00122a0140395f01086bde030014" > /dev/null || \
-HEX_PATCH "$TMP_DIR/unknown/apex_payload/lib64/libbluetooth_jni.so" \
-    "2897673948050037" "289767392a000014" > /dev/null
+    "00122a0140395f01086b00020054" "00122a0140395f01086bde030014" > /dev/null || BT_HEX_STATUS=$?
+case "$BT_HEX_STATUS" in
+    0) ;;
+    1)
+        HEX_PATCH "$TMP_DIR/unknown/apex_payload/lib64/libbluetooth_jni.so" \
+            "2897673948050037" "289767392a000014" > /dev/null || return 1
+        ;;
+    *) LOGE "Bluetooth native patch I/O or conversion failed"; return 1 ;;
+esac
+unset BT_HEX_STATUS
 
 BUILD_APK_IN_APEX "$TMP_DIR/unknown/apex_payload/app/$BT_FOLDER/Bluetooth.apk"
 BUILD_APK_IN_APEX "$TMP_DIR/unknown/apex_payload/javalib/framework-bluetooth.jar"

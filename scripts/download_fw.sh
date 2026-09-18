@@ -49,7 +49,7 @@ PREPARE_SCRIPT()
         fi
     fi
 
-    if ! $IGNORE_TARGET; then
+    if ! $IGNORE_TARGET && [[ "$TARGET_FIRMWARE_OFFLINE" != "true" ]]; then
         _CHECK_NON_EMPTY_PARAM "TARGET_FIRMWARE" "$TARGET_FIRMWARE" || exit 1
         FIRMWARES+=("$TARGET_FIRMWARE")
         IFS=':' read -r -a TARGET_EXTRA_FIRMWARES <<< "$TARGET_EXTRA_FIRMWARES"

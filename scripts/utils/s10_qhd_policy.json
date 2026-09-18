@@ -1,0 +1,370 @@
+{
+  "id": "s10-gzd7-essi-qhd",
+  "scope": "existing QHD call policy made explicit; retain observed GZD7 metadata or create declared non-executable media; no original asset xattr claim",
+  "entries": [
+    {
+      "donor": "b0sxxx",
+      "key": "system/bin/bootanimation",
+      "sha256": "0ece46bbefb8cd4e2a3e275fb667df1d03fa8e7103169fa37a1bd20238c849c0",
+      "original_sha256": "0ece46bbefb8cd4e2a3e275fb667df1d03fa8e7103169fa37a1bd20238c849c0",
+      "fs": [
+        0,
+        2000,
+        493,
+        0
+      ],
+      "label": "u:object_r:bootanim_exec:s0"
+    },
+    {
+      "donor": "b0sxxx",
+      "key": "system/bin/surfaceflinger",
+      "sha256": "7dcb45d97b55230a5905dc39e7697f61f41080bc6a53f1a8db4bed8dd242f8b6",
+      "original_sha256": "7dcb45d97b55230a5905dc39e7697f61f41080bc6a53f1a8db4bed8dd242f8b6",
+      "fs": [
+        0,
+        2000,
+        493,
+        0
+      ],
+      "label": "u:object_r:surfaceflinger_exec:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/battery_error.spi",
+      "sha256": "e2ff7d8c5579b4672fb3900b9b56f96d5ac09b251d9f14b4f914730c8317edeb",
+      "original_sha256": "e2ff7d8c5579b4672fb3900b9b56f96d5ac09b251d9f14b4f914730c8317edeb",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/battery_low.spi",
+      "sha256": "868d3ca99ec3b81374c268ccfc5af7efd0d286bd684ee1ccb7d52678d3facbd2",
+      "original_sha256": "868d3ca99ec3b81374c268ccfc5af7efd0d286bd684ee1ccb7d52678d3facbd2",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/battery_protection.spi",
+      "sha256": "3819423f23c65e94ebbc87207ccb4e79c1beb9dbc7496e07e4f512f19172bf18",
+      "original_sha256": "3819423f23c65e94ebbc87207ccb4e79c1beb9dbc7496e07e4f512f19172bf18",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/battery_temperature_error.spi",
+      "sha256": "360eecf9ebb08d25314f9cef08d43118c7b894040a076ea6a7e79761dccf64c6",
+      "original_sha256": "360eecf9ebb08d25314f9cef08d43118c7b894040a076ea6a7e79761dccf64c6",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/battery_temperature_limit.spi",
+      "sha256": "fd88d399cff551051f1ab8937500403ce01dd87dc646a32572e0f9335acf5bf6",
+      "original_sha256": "fd88d399cff551051f1ab8937500403ce01dd87dc646a32572e0f9335acf5bf6",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/battery_water_usb.spi",
+      "sha256": "b9ef6e73c17f31b99c37c8c2860c3ceb5d045e24a9a17c2bac3505c649aed09f",
+      "original_sha256": "b9ef6e73c17f31b99c37c8c2860c3ceb5d045e24a9a17c2bac3505c649aed09f",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/incomplete_connect.spi",
+      "sha256": "46b9236a988af02d337d76af5365c83b45f71c1dee390cf1483a300377b44067",
+      "original_sha256": "46b9236a988af02d337d76af5365c83b45f71c1dee390cf1483a300377b44067",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/lcd_density.txt",
+      "sha256": "d907bc5e9b1e0f69b71ae8cb29cafd3340df7e3e3071aa3b32d49f9caac69617",
+      "original_sha256": "d907bc5e9b1e0f69b71ae8cb29cafd3340df7e3e3071aa3b32d49f9caac69617",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_0_100.spi",
+      "sha256": "05c231ef3f8fed1934a02543fd4adfcdc255afe15475a860ada55d709da50844",
+      "original_sha256": "05c231ef3f8fed1934a02543fd4adfcdc255afe15475a860ada55d709da50844",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_1_100.spi",
+      "sha256": "2abe5746bf7e0476508830abe2fa9628503278907b7ac1037f21ac665ea524ac",
+      "original_sha256": "2abe5746bf7e0476508830abe2fa9628503278907b7ac1037f21ac665ea524ac",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_2_100.spi",
+      "sha256": "726bf30eb0269e183c7984f00b48054ebce981509784b7a4af22e67cee74df6a",
+      "original_sha256": "726bf30eb0269e183c7984f00b48054ebce981509784b7a4af22e67cee74df6a",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_0_1.spi",
+      "sha256": "04f55303830606284bd13d4bccac0b329807cb732a9c83d1e33f628b00acccb6",
+      "original_sha256": "04f55303830606284bd13d4bccac0b329807cb732a9c83d1e33f628b00acccb6",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_0_2.spi",
+      "sha256": "0ba2fc95357e3df07b8d53e6a040a87a05535975d955691c33bf4ab646199580",
+      "original_sha256": "0ba2fc95357e3df07b8d53e6a040a87a05535975d955691c33bf4ab646199580",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_0_3.spi",
+      "sha256": "01a66a83b5a692552cbd622f03220319b0ea0927c27d16d38e08ee7d74583db5",
+      "original_sha256": "01a66a83b5a692552cbd622f03220319b0ea0927c27d16d38e08ee7d74583db5",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_0_4.spi",
+      "sha256": "21a49f77322dbd073919819ab496c62b87e40408a393ba38b1c0f4237cfb2224",
+      "original_sha256": "21a49f77322dbd073919819ab496c62b87e40408a393ba38b1c0f4237cfb2224",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_1_1.spi",
+      "sha256": "1c70c96f1328ede25d1de3601c4521bd0d89e7dcc41296acd7369c4e10b1020e",
+      "original_sha256": "1c70c96f1328ede25d1de3601c4521bd0d89e7dcc41296acd7369c4e10b1020e",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_1_2.spi",
+      "sha256": "68164a6d8893a21a02cda57094b9a744cd6f0c17f4d7f42fc53a454904b4c757",
+      "original_sha256": "68164a6d8893a21a02cda57094b9a744cd6f0c17f4d7f42fc53a454904b4c757",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_1_3.spi",
+      "sha256": "966d71ae7fce9179125fc750c374232af3a84a0b87fe52d4a3d421d21468a3e6",
+      "original_sha256": "966d71ae7fce9179125fc750c374232af3a84a0b87fe52d4a3d421d21468a3e6",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_1_4.spi",
+      "sha256": "ad12fab8dac8f6fe2b499d78da18c5a41b7d6157b9b0eef2c394cf67e39fc37c",
+      "original_sha256": "ad12fab8dac8f6fe2b499d78da18c5a41b7d6157b9b0eef2c394cf67e39fc37c",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_2_1.spi",
+      "sha256": "3897e7f52559c1fdaa56f5fd861ed4b2a4961149cc4f457368dea68e0175e55b",
+      "original_sha256": "3897e7f52559c1fdaa56f5fd861ed4b2a4961149cc4f457368dea68e0175e55b",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_2_2.spi",
+      "sha256": "b06cb3dca56684185c4a63358336b73dfedb8801888e429f69ce82da4246eadf",
+      "original_sha256": "b06cb3dca56684185c4a63358336b73dfedb8801888e429f69ce82da4246eadf",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_2_3.spi",
+      "sha256": "00aa43ac2a9dd510e125abf621fa0e162245ae1179ee3191e4af4e045442be47",
+      "original_sha256": "00aa43ac2a9dd510e125abf621fa0e162245ae1179ee3191e4af4e045442be47",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/new_vi_level_2_4.spi",
+      "sha256": "cc361ada4c316486623902ce16c0ad818c2698120158fe1ffe9dd7b5f79a4ff7",
+      "original_sha256": "cc361ada4c316486623902ce16c0ad818c2698120158fe1ffe9dd7b5f79a4ff7",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/slow_charging_usb.spi",
+      "sha256": "20d983ecf7d12aaa345c1ac377161ceeb6890ae6a0e32fa2dde5ba606b5458a7",
+      "original_sha256": "20d983ecf7d12aaa345c1ac377161ceeb6890ae6a0e32fa2dde5ba606b5458a7",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/temperature_limit_usb.spi",
+      "sha256": "6f14106b308d94195a4d832ddc8dd4292212e98f4bb77fa1cc7912d1cc62d5a0",
+      "original_sha256": "6f14106b308d94195a4d832ddc8dd4292212e98f4bb77fa1cc7912d1cc62d5a0",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    },
+    {
+      "donor": "b0qxxx",
+      "key": "system/media/water_protection_usb.spi",
+      "sha256": "fcca1c64ffd2cb47d36269471540a6f99c2d1e30ba069c206bdb497ea34eb024",
+      "original_sha256": "fcca1c64ffd2cb47d36269471540a6f99c2d1e30ba069c206bdb497ea34eb024",
+      "fs": [
+        0,
+        0,
+        420,
+        0
+      ],
+      "label": "u:object_r:system_file:s0"
+    }
+  ]
+}

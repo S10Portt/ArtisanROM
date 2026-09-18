@@ -178,7 +178,47 @@ _HANDLE_SPECIAL_CHARS()
 }
 # ]
 
-# ADD_TO_WORK_DIR <source> <partition> <file/dir> <user> <group> <mode> <label>
+# Exact literal key lookup for converted S10 firmware metadata.
+# STRICT_RAW_METADATA is local to ADD_TO_WORK_DIR (Bash dynamic scope).
+_MATCH_METADATA_LINE()
+{
+    if [[ "${STRICT_RAW_METADATA:-false}" == "true" ]]; then
+        awk 'BEGIN { key=ARGV[1]; ARGV[1]="" }
+            $1 == key { print; found++ }
+            END { if (found != 1) exit 1 }' "$2" "$1"
+    else
+        grep -F "$2 " "$1"
+    fi
+}
+
+# Remove a serialized key (and optionally descendants), without evaluating regex.
+# Preserve comments, whitespace and unrelated type-qualified context rules.
+_REMOVE_METADATA_KEY()
+{
+    local META="$1" KEY="$2" RECURSIVE="${3:-false}" COPY IS_CONTEXT=false
+    [[ "$META" == */file_context-* ]] && IS_CONTEXT=true
+    [[ -f "$META" && -r "$META" && ! -L "$META" ]] || return 1
+    COPY=$(mktemp "${META}.edit.XXXXXX") || return 1
+    cp -p -- "$META" "$COPY" || return 1
+    awk 'function literal(value, i,c) {
+            for (i=1;i<=length(value);i++) {
+                c=substr(value,i,1)
+                if (c=="\\") {
+                    i++; if (i>length(value) || index(".+[]*",substr(value,i,1))==0) return 0
+                } else if (index(".+[]*^$?{}()|",c)>0) return 0
+            }
+            return 1
+        }
+        BEGIN { key=ARGV[1]; recursive=ARGV[2]; context=ARGV[3]; ARGV[1]=""; ARGV[2]=""; ARGV[3]="" }
+        /^[[:space:]]*#/ || NF==0 { print; next }
+        context=="true" && !literal($1) { print; next }
+        $1==key { next }
+        recursive=="true" && index($1,key "/")==1 { next }
+        { print }' "$KEY" "$RECURSIVE" "$IS_CONTEXT" "$META" > "$COPY" || return 1
+    mv -f -- "$COPY" "$META" || return 1
+}
+
+# ADD_TO_WORK_DIR <source> <partition> <file/dir> <user> <group> <mode> <label> [S10 metadata policy]
 # Adds the supplied file/directory in work dir along with its entries in fs_config/file_context.
 #
 # `source` argument can be:
@@ -196,6 +236,7 @@ ADD_TO_WORK_DIR()
     local SOURCE="$1"
     local PARTITION="$2"
     local FILE="$3"
+    local METADATA_POLICY="${8:-}"
     local USER="$4"
     local GROUP="$5"
     local MODE="$6"
@@ -211,6 +252,13 @@ ADD_TO_WORK_DIR()
 
     if [ ! -d "$SOURCE" ]; then
         LOGE "Folder not found: ${SOURCE//$SRC_DIR\//}"
+        return 1
+    fi
+
+    if [[ "$TARGET_CODENAME" == "beyond1lte" && "$PARTITION" == "product" ]] &&
+            { [[ "$SOURCE" == "$FW_DIR/SM-G973F_AUT" ]] ||
+              [[ "$SOURCE/product" -ef "$FW_DIR/SM-G973F_AUT/product" ]]; }; then
+        LOGE "HWC1 product is identity-only; copying it requires a separate metadata policy"
         return 1
     fi
 
@@ -254,6 +302,56 @@ ADD_TO_WORK_DIR()
         TARGET_FILE+="/$PARTITION/$FILE"
     fi
 
+    if [[ -n "$METADATA_POLICY" && ( "$TARGET_CODENAME" != "beyond1lte" || "$SOURCE" != "$FW_DIR/"* ) ]]; then
+        LOGE "S10 metadata policy requires a firmware input in the strict path"
+        return 1
+    fi
+    # Firmware-derived S10 data must have unique, readable source/work metadata.
+    # Explicit prebuilt assets retain the original interface.
+    local STRICT_RAW_METADATA=false META_FILE S10_PLAN_FILE
+    local SOURCE_IS_DIR=false
+    [[ -d "$SOURCE_FILE" && ! -L "$SOURCE_FILE" ]] && SOURCE_IS_DIR=true
+    if [[ "$TARGET_CODENAME" == "beyond1lte" && "$SOURCE" == "$FW_DIR/"* ]]; then
+        STRICT_RAW_METADATA=true
+        S10_PLAN_FILE=$(mktemp "$WORK_DIR/configs/.s10-plan.XXXXXX") || return 1
+        python3 "$SRC_DIR/scripts/utils/s10_metadata_plan.py" --policy "$METADATA_POLICY" \
+            "$SOURCE" "$WORK_DIR" "$SOURCE_FILE" "$TARGET_FILE" "$PARTITION" \
+            "$USER" "$GROUP" "$MODE" "$LABEL" > "$S10_PLAN_FILE" || return 1
+        for META_FILE in "$SOURCE/fs_config-$PARTITION" "$SOURCE/file_context-$PARTITION" \
+            "$WORK_DIR/configs/fs_config-$PARTITION" "$WORK_DIR/configs/file_context-$PARTITION"; do
+            [[ -f "$META_FILE" && -r "$META_FILE" && ! -L "$META_FILE" ]] || {
+                LOGE "Missing readable S10 metadata: $META_FILE"
+                return 1
+            }
+            local META_KIND="context" META_SCOPE="work"
+            [[ "$META_FILE" == */fs_config-* ]] && META_KIND="fs"
+            [[ "$META_FILE" == "$SOURCE/"* ]] && META_SCOPE="source"
+            awk 'BEGIN { kind=ARGV[1]; scope=ARGV[2]; ARGV[1]=""; ARGV[2]="" }
+                /^[[:space:]]*#/ || NF==0 { next }
+                {
+                    key=$1
+                    if (kind=="fs") {
+                        offset=0
+                        if (NF==4 && $0~/^[[:space:]]/) { key=""; offset=-1 }
+                        else if (NF!=5) exit 1
+                        uid=$(2+offset); gid=$(3+offset); mode=$(4+offset); cap=$(5+offset)
+                        if (uid!~/^[0-9]+$/ || gid!~/^[0-9]+$/ || uid>4294967295 || gid>4294967295 ||
+                            mode!~/^[0-7]+$/ || length(mode)>4 || cap!~/^capabilities=0x[0-9a-fA-F]+$/ || length(cap)>31) exit 1
+                    } else {
+                        if (NF==2) context=$2
+                        else if (scope=="work" && NF==3 && $2~/^-[bcdpls-]$/) {
+                            key=key " " $2; context=$3
+                        } else exit 1
+                        if (context!~/^[^[:space:]:]+:[^[:space:]:]+:[^[:space:]:]+:[^[:space:]]+$/ && context!="<<none>>") exit 1
+                    }
+                    if (seen[key]++) exit 1
+                }' "$META_KIND" "$META_SCOPE" "$META_FILE" || {
+                LOGE "Invalid or duplicate S10 metadata: $META_FILE"
+                return 1
+            }
+        done
+    fi
+
     if [ ! -e "$SOURCE_FILE" ] && [ ! -L "$SOURCE_FILE" ]; then
         if [ -e "$SOURCE_FILE.00" ]; then
             LOG "- Adding $(sed -e "s|$WORK_DIR||" -e "s|/\.||" <<< "$TARGET_FILE") from ${SOURCE//$SRC_DIR\//}"
@@ -265,10 +363,10 @@ ADD_TO_WORK_DIR()
         fi
     else
         LOG "- Adding $(sed -e "s|$WORK_DIR||" -e "s|/\.||" <<< "$TARGET_FILE") from ${SOURCE//$SRC_DIR\//}"
-        if [ ! -d "$SOURCE_FILE" ]; then
-            mkdir -p "$(dirname "$TARGET_FILE")"
+        if "$SOURCE_IS_DIR"; then
+            mkdir -p "$TARGET_FILE" || return 1
         else
-            mkdir -p "$TARGET_FILE"
+            mkdir -p "$(dirname "$TARGET_FILE")" || return 1
         fi
         EVAL "cp -a -T \"$SOURCE_FILE\" \"$TARGET_FILE\"" || exit 1
     fi
@@ -277,12 +375,16 @@ ADD_TO_WORK_DIR()
     [[ "$PARTITION" == "system" ]] && ENTRY="${ENTRY//system\/system\//system/}"
     ENTRY="${ENTRY%/.}"
 
-    if ! grep -q -F "$ENTRY " "$WORK_DIR/configs/fs_config-$PARTITION" 2> /dev/null; then
+    if ! _MATCH_METADATA_LINE "$WORK_DIR/configs/fs_config-$PARTITION" "$ENTRY" > /dev/null 2>&1; then
         if [ "$USER" ] && [ "$GROUP" ] && [ "$MODE" ]; then
             echo "$ENTRY $USER $GROUP $MODE capabilities=0x0" >> "$WORK_DIR/configs/fs_config-$PARTITION"
-        elif grep -q -F "$ENTRY " "$SOURCE/fs_config-$PARTITION" 2> /dev/null; then
-            grep -F "$ENTRY " "$SOURCE/fs_config-$PARTITION" >> "$WORK_DIR/configs/fs_config-$PARTITION"
+        elif _MATCH_METADATA_LINE "$SOURCE/fs_config-$PARTITION" "$ENTRY" > /dev/null 2>&1; then
+            _MATCH_METADATA_LINE "$SOURCE/fs_config-$PARTITION" "$ENTRY" >> "$WORK_DIR/configs/fs_config-$PARTITION" || return 1
         else
+            if "$STRICT_RAW_METADATA"; then
+                LOGE "Required S10 metadata entry was not found; refusing defaults"
+                return 1
+            fi
             LOGW "No fs_config entry found for \"$ENTRY\" in \"${SOURCE//$SRC_DIR\//}\". Using default values"
 
             USER=0
@@ -297,12 +399,16 @@ ADD_TO_WORK_DIR()
         fi
     fi
 
-    if ! grep -q -F "/$(_HANDLE_SPECIAL_CHARS "$ENTRY") " "$WORK_DIR/configs/file_context-$PARTITION" 2> /dev/null; then
+    if ! _MATCH_METADATA_LINE "$WORK_DIR/configs/file_context-$PARTITION" "/$(_HANDLE_SPECIAL_CHARS "$ENTRY")" > /dev/null 2>&1; then
         if [ "$LABEL" ]; then
             echo "/$(_HANDLE_SPECIAL_CHARS "$ENTRY") $LABEL" >> "$WORK_DIR/configs/file_context-$PARTITION"
-        elif grep -q -F "/$(_HANDLE_SPECIAL_CHARS "$ENTRY") " "$SOURCE/file_context-$PARTITION" 2> /dev/null; then
-            grep -F "/$(_HANDLE_SPECIAL_CHARS "$ENTRY") " "$SOURCE/file_context-$PARTITION" >> "$WORK_DIR/configs/file_context-$PARTITION"
+        elif _MATCH_METADATA_LINE "$SOURCE/file_context-$PARTITION" "/$(_HANDLE_SPECIAL_CHARS "$ENTRY")" > /dev/null 2>&1; then
+            _MATCH_METADATA_LINE "$SOURCE/file_context-$PARTITION" "/$(_HANDLE_SPECIAL_CHARS "$ENTRY")" >> "$WORK_DIR/configs/file_context-$PARTITION" || return 1
         else
+            if "$STRICT_RAW_METADATA"; then
+                LOGE "Required S10 metadata entry was not found; refusing defaults"
+                return 1
+            fi
             LOGW "No file_context entry found for \"$ENTRY\" in \"${SOURCE//$SRC_DIR\//}\". Using default value"
 
             LABEL="$(_GET_SELINUX_LABEL "$PARTITION" "/$ENTRY")"
@@ -311,20 +417,31 @@ ADD_TO_WORK_DIR()
         fi
     fi
 
-    if [ -d "$TARGET_FILE" ]; then
+    if "$STRICT_RAW_METADATA" || "$SOURCE_IS_DIR"; then
         local FILES
-        FILES="$(find "${SOURCE_FILE%/.}")"
+        if "$STRICT_RAW_METADATA"; then
+            FILES=$(cat "$S10_PLAN_FILE") || return 1
+        else
+        FILES="$(find "${SOURCE_FILE%/.}")" || return 1
         FILES="${FILES//$SOURCE\//}"
         [[ "$PARTITION" == "system" ]] && FILES="${FILES//system\/system\//system/}"
-        $TARGET_OS_BUILD_SYSTEM_EXT_PARTITION || FILES="${FILES//system_ext\//system/system_ext/}"
+        if ! $TARGET_OS_BUILD_SYSTEM_EXT_PARTITION; then
+            FILES=$(sed 's|^system_ext/|system/system_ext/|' <<< "$FILES") || return 1
+        fi
+
+        fi
 
         while IFS= read -r f; do
             IS_VALID_PARTITION_NAME "$f" && continue
 
-            if ! grep -q -F "$f " "$WORK_DIR/configs/fs_config-$PARTITION" 2> /dev/null; then
-                if grep -q -F "$f " "$SOURCE/fs_config-$PARTITION" 2> /dev/null; then
-                    grep -F "$f " "$SOURCE/fs_config-$PARTITION" >> "$WORK_DIR/configs/fs_config-$PARTITION"
+            if ! _MATCH_METADATA_LINE "$WORK_DIR/configs/fs_config-$PARTITION" "$f" > /dev/null 2>&1; then
+                if _MATCH_METADATA_LINE "$SOURCE/fs_config-$PARTITION" "$f" > /dev/null 2>&1; then
+                    _MATCH_METADATA_LINE "$SOURCE/fs_config-$PARTITION" "$f" >> "$WORK_DIR/configs/fs_config-$PARTITION" || return 1
                 else
+                    if "$STRICT_RAW_METADATA"; then
+                        LOGE "Required S10 metadata entry was not found; refusing defaults"
+                        return 1
+                    fi
                     LOGW "No fs_config entry found for \"$f\" in \"${SOURCE//$SRC_DIR\//}\". Using default values"
 
                     USER=0
@@ -339,10 +456,14 @@ ADD_TO_WORK_DIR()
                 fi
             fi
 
-            if ! grep -q -F "/$(_HANDLE_SPECIAL_CHARS "$f") " "$WORK_DIR/configs/file_context-$PARTITION" 2> /dev/null; then
-                if grep -q -F "/$(_HANDLE_SPECIAL_CHARS "$f") " "$SOURCE/file_context-$PARTITION" 2> /dev/null; then
-                    grep -F "/$(_HANDLE_SPECIAL_CHARS "$f") " "$SOURCE/file_context-$PARTITION" >> "$WORK_DIR/configs/file_context-$PARTITION"
+            if ! _MATCH_METADATA_LINE "$WORK_DIR/configs/file_context-$PARTITION" "/$(_HANDLE_SPECIAL_CHARS "$f")" > /dev/null 2>&1; then
+                if _MATCH_METADATA_LINE "$SOURCE/file_context-$PARTITION" "/$(_HANDLE_SPECIAL_CHARS "$f")" > /dev/null 2>&1; then
+                    _MATCH_METADATA_LINE "$SOURCE/file_context-$PARTITION" "/$(_HANDLE_SPECIAL_CHARS "$f")" >> "$WORK_DIR/configs/file_context-$PARTITION" || return 1
                 else
+                    if "$STRICT_RAW_METADATA"; then
+                        LOGE "Required S10 metadata entry was not found; refusing defaults"
+                        return 1
+                    fi
                     LOGW "No file_context entry found for \"$f\" in \"${SOURCE//$SRC_DIR\//}\". Using default value"
 
                     LABEL="$(_GET_SELINUX_LABEL "$PARTITION" "/$f")"
@@ -359,10 +480,14 @@ ADD_TO_WORK_DIR()
         while [[ "$TMP" != "." ]]; do
             IS_VALID_PARTITION_NAME "$TMP" && break
 
-            if ! grep -q -F "$TMP " "$WORK_DIR/configs/fs_config-$PARTITION" 2> /dev/null; then
-                if grep -q -F "$TMP " "$SOURCE/fs_config-$PARTITION" 2> /dev/null; then
-                    grep -F "$TMP " "$SOURCE/fs_config-$PARTITION" >> "$WORK_DIR/configs/fs_config-$PARTITION"
+            if ! _MATCH_METADATA_LINE "$WORK_DIR/configs/fs_config-$PARTITION" "$TMP" > /dev/null 2>&1; then
+                if _MATCH_METADATA_LINE "$SOURCE/fs_config-$PARTITION" "$TMP" > /dev/null 2>&1; then
+                    _MATCH_METADATA_LINE "$SOURCE/fs_config-$PARTITION" "$TMP" >> "$WORK_DIR/configs/fs_config-$PARTITION" || return 1
                 else
+                    if "$STRICT_RAW_METADATA"; then
+                        LOGE "Required S10 metadata entry was not found; refusing defaults"
+                        return 1
+                    fi
                     LOGW "No fs_config entry found for \"$TMP\" in \"${SOURCE//$SRC_DIR\//}\". Using default values"
 
                     USER=0
@@ -374,10 +499,14 @@ ADD_TO_WORK_DIR()
                 fi
             fi
 
-            if ! grep -q -F "/$(_HANDLE_SPECIAL_CHARS "$TMP") " "$WORK_DIR/configs/file_context-$PARTITION" 2> /dev/null; then
-                if grep -q -F "/$(_HANDLE_SPECIAL_CHARS "$TMP") " "$SOURCE/file_context-$PARTITION" 2> /dev/null; then
-                    grep -F "/$(_HANDLE_SPECIAL_CHARS "$TMP") " "$SOURCE/file_context-$PARTITION" >> "$WORK_DIR/configs/file_context-$PARTITION"
+            if ! _MATCH_METADATA_LINE "$WORK_DIR/configs/file_context-$PARTITION" "/$(_HANDLE_SPECIAL_CHARS "$TMP")" > /dev/null 2>&1; then
+                if _MATCH_METADATA_LINE "$SOURCE/file_context-$PARTITION" "/$(_HANDLE_SPECIAL_CHARS "$TMP")" > /dev/null 2>&1; then
+                    _MATCH_METADATA_LINE "$SOURCE/file_context-$PARTITION" "/$(_HANDLE_SPECIAL_CHARS "$TMP")" >> "$WORK_DIR/configs/file_context-$PARTITION" || return 1
                 else
+                    if "$STRICT_RAW_METADATA"; then
+                        LOGE "Required S10 metadata entry was not found; refusing defaults"
+                        return 1
+                    fi
                     LOGW "No file_context entry found for \"$TMP\" in \"${SOURCE//$SRC_DIR\//}\". Using default value"
 
                     LABEL="$(_GET_SELINUX_LABEL "$PARTITION" "/$TMP")"
@@ -390,6 +519,12 @@ ADD_TO_WORK_DIR()
         done
     fi
 
+    if "$STRICT_RAW_METADATA"; then
+        python3 "$SRC_DIR/scripts/utils/s10_metadata_plan.py" --verify-result --policy "$METADATA_POLICY" \
+            "$SOURCE" "$WORK_DIR" "$SOURCE_FILE" "$TARGET_FILE" "$PARTITION" \
+            "$USER" "$GROUP" "$MODE" "$LABEL" > /dev/null || return 1
+        rm -f -- "$S10_PLAN_FILE" || return 1
+    fi
     return 0
 }
 
@@ -438,31 +573,23 @@ DELETE_FROM_WORK_DIR()
     fi
 
     local IS_DIR=false
-    [ -d "$FILE_PATH" ] && IS_DIR=true
+    [ -d "$FILE_PATH" ] && [ ! -L "$FILE_PATH" ] && IS_DIR=true
 
     LOG "- Deleting ${FILE_PATH//$WORK_DIR/}"
-    rm -rf "$FILE_PATH"
+    rm -rf "$FILE_PATH" || return 1
 
-    local PATTERN="${FILE//\//\\/}"
-    [ "$PARTITION" != "system" ] && PATTERN="$PARTITION\/$PATTERN"
-    sed -i "/^$PATTERN /d" "$WORK_DIR/configs/fs_config-$PARTITION"
-    if $IS_DIR; then
-        sed -i "/^$PATTERN\//d" "$WORK_DIR/configs/fs_config-$PARTITION"
-    fi
-
-    PATTERN="$(_HANDLE_SPECIAL_CHARS "$FILE")"
-    PATTERN="${PATTERN//\\/\\\\}"
-    PATTERN="${PATTERN//\//\\/}"
-    [ "$PARTITION" != "system" ] && PATTERN="$PARTITION\/$PATTERN"
-    sed -i "/^\/$PATTERN /d" "$WORK_DIR/configs/file_context-$PARTITION"
-    if $IS_DIR; then
-        sed -i "/^\/$PATTERN\//d" "$WORK_DIR/configs/file_context-$PARTITION"
-    fi
+    local KEY="$FILE"
+    [[ "$PARTITION" != "system" ]] && KEY="$PARTITION/$KEY"
+    _REMOVE_METADATA_KEY "$WORK_DIR/configs/fs_config-$PARTITION" "$KEY" "$IS_DIR" || return 1
+    _REMOVE_METADATA_KEY "$WORK_DIR/configs/file_context-$PARTITION" \
+        "/$(_HANDLE_SPECIAL_CHARS "$KEY")" "$IS_DIR" || return 1
 
     if [[ "$FILE" == *".so" ]]; then
-        while IFS= read -r f; do
-            sed -i "/$(basename "$FILE")/d" "$f"
-        done < <(grep -l "$(basename "$FILE")" "$WORK_DIR/system/system/etc/public.libraries"*.txt)
+        local LIB_LIST
+        for LIB_LIST in "$WORK_DIR/system/system/etc/public.libraries"*.txt; do
+            [[ -e "$LIB_LIST" || -L "$LIB_LIST" ]] || continue
+            _REMOVE_METADATA_KEY "$LIB_LIST" "${FILE##*/}" || return 1
+        done
     fi
 
     return 0
@@ -598,6 +725,8 @@ READ_BYTES_AT()
 
 # SET_METADATA <partition> <file/dir> <user> <group> <mode> <label>
 # Adds the supplied file/directory entry attrs in fs_config/file_context.
+# Optional seventh argument: explicit capabilities mask. S10 refuses implicit
+# removal of an existing nonzero capability; callers must choose a replacement.
 SET_METADATA()
 {
     _CHECK_NON_EMPTY_PARAM "PARTITION" "$1" || return 1
@@ -613,6 +742,22 @@ SET_METADATA()
     local GROUP="$4"
     local MODE="$5"
     local LABEL="$6"
+    local CAPABILITIES="${7:-0x0}"
+    if [[ ! "$CAPABILITIES" =~ ^0x[0-9a-fA-F]{1,16}$ ]]; then
+        LOGE "Invalid explicit capability mask: $CAPABILITIES"
+        return 1
+    fi
+
+    if [[ ! "$USER" =~ ^[0-9]{1,10}$ || ! "$GROUP" =~ ^[0-9]{1,10}$ ||
+          ! "$MODE" =~ ^[0-7]{1,4}$ ||
+          ! "$LABEL" =~ ^[A-Za-z0-9_]+:[A-Za-z0-9_]+:[A-Za-z0-9_]+:[A-Za-z0-9_:,.-]+$ ]]; then
+        LOGE "Invalid explicit metadata fields"
+        return 1
+    fi
+    if (( 10#$USER > 4294967295 || 10#$GROUP > 4294967295 )); then
+        LOGE "Metadata uid/gid outside 32-bit range"
+        return 1
+    fi
 
     if ! IS_VALID_PARTITION_NAME "$PARTITION"; then
         LOGE "\"$PARTITION\" is not a valid partition name"
@@ -625,20 +770,35 @@ SET_METADATA()
 
     [ "$PARTITION" != "system" ] && [[ "$ENTRY" != "$PARTITION/"* ]] && ENTRY="$PARTITION/$ENTRY"
 
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        local OLD_CAP
+        OLD_CAP=$(awk 'BEGIN { key=ARGV[1]; ARGV[1]="" }
+            $1 == key {
+                count++
+                if (NF != 5 || $5 !~ /^capabilities=0x[0-9a-fA-F]+$/) invalid=1
+                value=$5; sub(/^capabilities=/,"",value)
+            }
+            END { if (count>1 || invalid) exit 1; if (count==1) print value }' \
+            "$ENTRY" "$WORK_DIR/configs/fs_config-$PARTITION") || return 1
+        if [[ -z "${7:-}" && -n "$OLD_CAP" && ! "$OLD_CAP" =~ ^0x0+$ ]]; then
+            LOGE "SET_METADATA requires an explicit capability mask for /$ENTRY (existing $OLD_CAP)"
+            return 1
+        fi
+    fi
+
     LOG "- Adding metadata for /$ENTRY (uid:$USER gid:$GROUP mode:$MODE selabel:$LABEL)"
 
-    local PATTERN
-    PATTERN="${ENTRY//\//\\/}"
-    sed -i "/^$PATTERN /d" "$WORK_DIR/configs/fs_config-$PARTITION"
-
-    echo "$ENTRY $USER $GROUP $MODE capabilities=0x0" >> "$WORK_DIR/configs/fs_config-$PARTITION"
-
-    PATTERN="$(_HANDLE_SPECIAL_CHARS "$ENTRY")"
-    PATTERN="${PATTERN//\\/\\\\}"
-    PATTERN="${PATTERN//\//\\/}"
-    sed -i "/^\/$PATTERN /d" "$WORK_DIR/configs/file_context-$PARTITION"
-
-    echo "/$(_HANDLE_SPECIAL_CHARS "$ENTRY") $LABEL" >> "$WORK_DIR/configs/file_context-$PARTITION"
+    local CONTEXT_KEY
+    CONTEXT_KEY="/$(_HANDLE_SPECIAL_CHARS "$ENTRY")"
+    # A typed rule is not equivalent to a universal replacement label.
+    awk 'BEGIN { key=ARGV[1]; ARGV[1]="" }
+        $1==key { count++; if (NF!=2) invalid=1 }
+        END { if (invalid || count>1) exit 1 }' "$CONTEXT_KEY" \
+        "$WORK_DIR/configs/file_context-$PARTITION" || return 1
+    _REMOVE_METADATA_KEY "$WORK_DIR/configs/fs_config-$PARTITION" "$ENTRY" || return 1
+    _REMOVE_METADATA_KEY "$WORK_DIR/configs/file_context-$PARTITION" "$CONTEXT_KEY" || return 1
+    echo "$ENTRY $USER $GROUP $MODE capabilities=$CAPABILITIES" >> "$WORK_DIR/configs/fs_config-$PARTITION" || return 1
+    echo "$CONTEXT_KEY $LABEL" >> "$WORK_DIR/configs/file_context-$PARTITION" || return 1
 
     return 0
 }

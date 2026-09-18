@@ -31,3 +31,7 @@ target/a73xq/patches/wpss/vendor/firmware/** binary
 target/m52xq/patches/wpss/vendor/firmware/** binary
 target/r9s/patches/vendor/vendor/** binary
 target/r8s/patches/vendor/vendor/bin/hw/wpa_supplicant binary
+
+# Exynos 9820 vendor executables (extensionless ELF files)
+platform/exynos9820/patches/vendor/vendor/bin/** binary
+target/beyond1lte/kernel/*.img binary

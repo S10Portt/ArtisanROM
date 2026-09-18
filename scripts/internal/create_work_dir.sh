@@ -3,6 +3,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # [
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    if [[ -e "$WORK_DIR" || -L "$WORK_DIR" ]]; then
+        python3 "$SRC_DIR/scripts/utils/s10_auxiliary_contract.py" work "$WORK_DIR" || exit 1
+    fi
+    source "$SRC_DIR/scripts/utils/s10_inputs.sh" || exit 1
+    CHECK_S10_INPUTS || exit 1
+    CHECK_S10_SOURCE_INPUTS || exit 1
+fi
 source "$SRC_DIR/scripts/utils/build_utils.sh" || exit 1
 
 SOURCE_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$SOURCE_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$SOURCE_FIRMWARE")"
@@ -15,15 +23,25 @@ COPY_SOURCE_FIRMWARE()
         if [ -d "$FW_DIR/$SOURCE_FIRMWARE_PATH/$f" ]; then
             LOG "- Copying /$f from source firmware"
             EVAL "rsync -a --mkpath --delete --exclude=\"*system_ext*\" \"$FW_DIR/$SOURCE_FIRMWARE_PATH/$f\" \"$WORK_DIR\"" || exit 1
-            sed "/system_ext/d" "$FW_DIR/$SOURCE_FIRMWARE_PATH/file_context-$f" > "$WORK_DIR/configs/file_context-$f"
-            sed "/system_ext/d" "$FW_DIR/$SOURCE_FIRMWARE_PATH/fs_config-$f" > "$WORK_DIR/configs/fs_config-$f"
+            sed "/system_ext/d" "$FW_DIR/$SOURCE_FIRMWARE_PATH/file_context-$f" > "$WORK_DIR/configs/file_context-$f" || exit 1
+            sed "/system_ext/d" "$FW_DIR/$SOURCE_FIRMWARE_PATH/fs_config-$f" > "$WORK_DIR/configs/fs_config-$f" || exit 1
             if [[ "$f" == "product" ]]; then
                 LOG_STEP_IN
-                SET_PROP "product" "ro.product.product.name" "$(GET_PROP "$FW_DIR/$TARGET_FIRMWARE_PATH/product/etc/build.prop" "ro.product.product.name")"
+                if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+                    python3 "$SRC_DIR/scripts/utils/s10_copy_properties.py" product "$FW_DIR" "$WORK_DIR" || exit 1
+                else
+                    local TARGET_PRODUCT_NAME
+                    TARGET_PRODUCT_NAME="$(GET_PROP "$FW_DIR/$TARGET_FIRMWARE_PATH/product/etc/build.prop" "ro.product.product.name")" || exit 1
+                    SET_PROP "product" "ro.product.product.name" "$TARGET_PRODUCT_NAME" || exit 1
+                fi
                 LOG_STEP_OUT
             elif [[ "$f" == "system" ]]; then
                 LOG_STEP_IN
-                SET_PROP "system" "ro.product.device" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/odm/etc/build.prop" "ro.product.odm.device")"
+                if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+                    python3 "$SRC_DIR/scripts/utils/s10_copy_properties.py" system "$FW_DIR" "$WORK_DIR" || exit 1
+                else
+                    SET_PROP "system" "ro.product.device" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/odm/etc/build.prop" "ro.product.odm.device")" || exit 1
+                fi
                 LOG_STEP_OUT
             fi
         else
@@ -43,8 +61,8 @@ COPY_SOURCE_FIRMWARE()
             EVAL "rsync -a --mkpath --delete \"$FW_DIR/$SOURCE_FIRMWARE_PATH/system_ext\" \"$WORK_DIR\"" || exit 1
             mkdir -p "$WORK_DIR/system/system_ext"
             EVAL "ln -sf \"/system_ext\" \"$WORK_DIR/system/system/system_ext\"" || exit 1
-            SET_METADATA "system" "system_ext" 0 0 755 "u:object_r:system_file:s0"
-            SET_METADATA "system" "system/system_ext" 0 0 644 "u:object_r:system_file:s0"
+            SET_METADATA "system" "system_ext" 0 0 755 "u:object_r:system_file:s0" || exit 1
+            SET_METADATA "system" "system/system_ext" 0 0 644 "u:object_r:system_file:s0" || exit 1
             EVAL "cp -a \"$FW_DIR/$SOURCE_FIRMWARE_PATH/file_context-system_ext\" \"$WORK_DIR/configs/file_context-system_ext\"" || exit 1
             EVAL "cp -a \"$FW_DIR/$SOURCE_FIRMWARE_PATH/fs_config-system_ext\" \"$WORK_DIR/configs/fs_config-system_ext\"" || exit 1
 
@@ -60,9 +78,9 @@ COPY_SOURCE_FIRMWARE()
 
             EVAL "rsync -a --mkpath --delete \"$FW_DIR/$SOURCE_FIRMWARE_PATH/system_ext\" \"$WORK_DIR/system/system\"" || exit 1
             EVAL "ln -sf \"/system/system_ext\" \"$WORK_DIR/system/system_ext\"" || exit 1
-            SET_METADATA "system" "system_ext" 0 0 644 "u:object_r:system_file:s0"
-            sed "s/^\/system_ext/\/system\/system_ext/g" "$FW_DIR/$SOURCE_FIRMWARE_PATH/file_context-system_ext" >> "$WORK_DIR/configs/file_context-system"
-            sed "s/^system_ext/system\/system_ext/g" "$FW_DIR/$SOURCE_FIRMWARE_PATH/fs_config-system_ext" >> "$WORK_DIR/configs/fs_config-system"
+            SET_METADATA "system" "system_ext" 0 0 644 "u:object_r:system_file:s0" || exit 1
+            sed "s/^\/system_ext/\/system\/system_ext/g" "$FW_DIR/$SOURCE_FIRMWARE_PATH/file_context-system_ext" >> "$WORK_DIR/configs/file_context-system" || exit 1
+            sed "s/^system_ext/system\/system_ext/g" "$FW_DIR/$SOURCE_FIRMWARE_PATH/fs_config-system_ext" >> "$WORK_DIR/configs/fs_config-system" || exit 1
 
             ADD_TO_WORK_DIR "b0sxxx" "system_ext" "etc/build_flags.json" 0 0 644 "u:object_r:system_file:s0" || exit 1
             DELETE_FROM_WORK_DIR "system" "system/system_ext/etc/NOTICE.xml.gz"
@@ -79,11 +97,11 @@ COPY_SOURCE_FIRMWARE()
             EVAL "rsync -a --mkpath --delete \"$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/system_ext\" \"$WORK_DIR\"" || exit 1
             mkdir -p "$WORK_DIR/system/system_ext"
             EVAL "ln -sf \"/system_ext\" \"$WORK_DIR/system/system/system_ext\"" || exit 1
-            SET_METADATA "system" "system_ext" 0 0 755 "u:object_r:system_file:s0"
-            SET_METADATA "system" "system/system_ext" 0 0 644 "u:object_r:system_file:s0"
+            SET_METADATA "system" "system_ext" 0 0 755 "u:object_r:system_file:s0" || exit 1
+            SET_METADATA "system" "system/system_ext" 0 0 644 "u:object_r:system_file:s0" || exit 1
             grep -F "system/system_ext" "$FW_DIR/$SOURCE_FIRMWARE_PATH/file_context-system" | sed "s/^\/system//" > "$WORK_DIR/configs/file_context-system_ext"
             grep -F "system/system_ext" "$FW_DIR/$SOURCE_FIRMWARE_PATH/fs_config-system" | sed "s/^system\///" > "$WORK_DIR/configs/fs_config-system_ext"
-            sed -i "s/^system_ext /  /g" "$WORK_DIR/configs/fs_config-system_ext"
+            sed -i "s/^system_ext /  /g" "$WORK_DIR/configs/fs_config-system_ext" || exit 1
 
             ADD_TO_WORK_DIR "b0qxxx" "system_ext" "etc/build_flags.json" 0 0 644 "u:object_r:system_file:s0" || exit 1
             ADD_TO_WORK_DIR "b0qxxx" "system_ext" "etc/NOTICE.xml.gz" 0 0 644 "u:object_r:system_file:s0" || exit 1
@@ -100,8 +118,8 @@ COPY_SOURCE_FIRMWARE()
 
             EVAL "rsync -a --mkpath --delete \"$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/system_ext\" \"$WORK_DIR/system/system\"" || exit 1
             EVAL "ln -sf \"/system/system_ext\" \"$WORK_DIR/system/system_ext\"" || exit 1
-            grep -F "system_ext" "$FW_DIR/$SOURCE_FIRMWARE_PATH/file_context-system" >> "$WORK_DIR/configs/file_context-system"
-            grep -F "system_ext" "$FW_DIR/$SOURCE_FIRMWARE_PATH/fs_config-system" >> "$WORK_DIR/configs/fs_config-system"
+            grep -F "system_ext" "$FW_DIR/$SOURCE_FIRMWARE_PATH/file_context-system" >> "$WORK_DIR/configs/file_context-system" || exit 1
+            grep -F "system_ext" "$FW_DIR/$SOURCE_FIRMWARE_PATH/fs_config-system" >> "$WORK_DIR/configs/fs_config-system" || exit 1
 
             LOG_STEP_OUT
         fi
@@ -119,12 +137,16 @@ COPY_TARGET_FIRMWARE()
             EVAL "cp -a \"$FW_DIR/$TARGET_FIRMWARE_PATH/fs_config-$f\" \"$WORK_DIR/configs/fs_config-$f\"" || exit 1
             if [[ "$f" == "vendor" ]]; then
                 LOG_STEP_IN
-                SET_PROP "vendor" "ro.config.ringtone" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.ringtone")"
-                SET_PROP "vendor" "ro.config.notification_sound" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.notification_sound")"
-                SET_PROP "vendor" "ro.config.alarm_alert" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.alarm_alert")"
-                SET_PROP "vendor" "ro.config.media_sound" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.media_sound")"
-                SET_PROP "vendor" "ro.config.ringtone_2" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.ringtone_2")"
-                SET_PROP "vendor" "ro.config.notification_sound_2" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.notification_sound_2")"
+                if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+                    python3 "$SRC_DIR/scripts/utils/s10_copy_properties.py" vendor "$FW_DIR" "$WORK_DIR" || exit 1
+                else
+                    SET_PROP "vendor" "ro.config.ringtone" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.ringtone")" || exit 1
+                    SET_PROP "vendor" "ro.config.notification_sound" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.notification_sound")" || exit 1
+                    SET_PROP "vendor" "ro.config.alarm_alert" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.alarm_alert")" || exit 1
+                    SET_PROP "vendor" "ro.config.media_sound" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.media_sound")" || exit 1
+                    SET_PROP "vendor" "ro.config.ringtone_2" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.ringtone_2")" || exit 1
+                    SET_PROP "vendor" "ro.config.notification_sound_2" "$(GET_PROP "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/build.prop" "ro.config.notification_sound_2")" || exit 1
+                fi
                 LOG_STEP_OUT
             fi
         else
@@ -137,6 +159,23 @@ COPY_TARGET_FIRMWARE()
 
 COPY_TARGET_KERNEL()
 {
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        # Preflight already checked the fixed three-image manifest. Do not use
+        # the stock permissive boot metadata or auto-build a kernel here.
+        mkdir -p "$WORK_DIR/kernel"
+        local IMAGE
+        for IMAGE in "$WORK_DIR/kernel/"*.img; do
+            [ -e "$IMAGE" ] || continue
+            case "${IMAGE##*/}" in boot.img|dtb.img|dtbo.img) ;; *)
+                echo "Unexpected existing S10 kernel image: $IMAGE; review the work directory" >&2
+                return 1 ;;
+            esac
+        done
+        for IMAGE in boot dtb dtbo; do
+            cp -a "$SRC_DIR/target/beyond1lte/kernel/$IMAGE.img" "$WORK_DIR/kernel/$IMAGE.img" || return 1
+        done
+        return 0
+    fi
     if [ -d "$FW_DIR/$TARGET_FIRMWARE_PATH/kernel" ]; then
         LOG_STEP_IN "- Copying target firmware kernel images"
         EVAL "rsync -a --mkpath --delete \"$FW_DIR/$TARGET_FIRMWARE_PATH/kernel\" \"$WORK_DIR\"" || exit 1
@@ -160,6 +199,10 @@ mkdir -p "$WORK_DIR"
 mkdir -p "$WORK_DIR/configs"
 COPY_SOURCE_FIRMWARE
 COPY_TARGET_FIRMWARE
-COPY_TARGET_KERNEL
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    COPY_TARGET_KERNEL || exit 1
+else
+    COPY_TARGET_KERNEL
+fi
 
 exit 0

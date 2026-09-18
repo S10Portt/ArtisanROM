@@ -1,0 +1,2 @@
+# Remove only after the kernel, partition layout and firmware patches are validated.
+abort("beyond1lte source port is incomplete; see target/beyond1lte/README.md Do not flash.");

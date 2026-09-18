@@ -3,20 +3,28 @@ PARTITIONS_LIST="system vendor product system_ext odm vendor_dlkm odm_dlkm syste
 
 PATCH_FSTAB()
 {
-    local f
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        # OS filesystem selection must not rewrite preserved ODM/data mount types.
+        python3 "$SRC_DIR/scripts/utils/s10_fstab.py" "$1" \
+            --os-fs "$TARGET_OS_FILE_SYSTEM_TYPE" --apply || return 1
+        return 0
+    fi
+    local f FSTAB_LIST
+    FSTAB_LIST=$(mktemp "$TMP_DIR/fstab-list.XXXXXX") || return 1
+    find "$1" -type f -name "fstab.*" -print0 > "$FSTAB_LIST" || return 1
 
-    while IFS= read -r f; do
+    while IFS= read -r -d "" f; do
         if [[ "$f" == *"emmc" ]] || [[ "$f" == *"ramplus" ]]; then
             continue
         fi
-        if sed -E -i \
+        sed -E -i \
             -e "/^[^[:space:]]+[[:space:]]+\/(${PARTITIONS_LIST// /|})[[:space:]]+/ s/^([^[:space:]]+[[:space:]]+[^[:space:]]+)[[:space:]]+[^[:space:]]+[[:space:]]+/\1\t$TARGET_OS_FILE_SYSTEM_TYPE\t/" \
             -e "/^[^[:space:]]+[[:space:]]+\/(${PARTITIONS_LIST// /|})[[:space:]]+/ s/^([^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+)[[:space:]]+[^[:space:]]+[[:space:]]+/\1\tro\t/" \
-            "$f"; then
-            LOG "- Patching $(sed -e "s|$WORK_DIR||g" -e "s|$TMP_DIR/out/ramdisk_extracted|$BOOT_FILE|g" <<< "$f")"
-        fi
-        EVAL "uniq \"$f\" \"$TMP_DIR/tmp\" && mv -f \"$TMP_DIR/tmp\" \"$f\""
-    done < <(find "$1" -type f -name "fstab.*")
+            "$f" || return 1
+        LOG "- Patching $(sed -e "s|$WORK_DIR||g" -e "s|$TMP_DIR/out/ramdisk_extracted|$BOOT_FILE|g" <<< "$f")"
+        EVAL "uniq \"$f\" \"$TMP_DIR/tmp\" && mv -f \"$TMP_DIR/tmp\" \"$f\"" || return 1
+    done < "$FSTAB_LIST"
+    rm -f "$FSTAB_LIST" || return 1
 }
 # ]
 
@@ -59,7 +67,7 @@ while IFS= read -r f; do
         EVAL "cat \"$f\" | lz4 -d | cpio --quiet -i -D \"$TMP_DIR/out/ramdisk_extracted\""
     fi
 
-    PATCH_FSTAB "$TMP_DIR/out/ramdisk_extracted"
+    PATCH_FSTAB "$TMP_DIR/out/ramdisk_extracted" || return 1
 
     LOG "- Repacking $BOOT_FILE/$(basename "$f")"
 
@@ -72,7 +80,7 @@ while IFS= read -r f; do
     EVAL "rm -rf \"$TMP_DIR/out/ramdisk_extracted\""
 done < <(find "$TMP_DIR/out" -type f -name "*ramdisk*" | LC_ALL=C sort)
 
-PATCH_FSTAB "$WORK_DIR/vendor/etc"
+PATCH_FSTAB "$WORK_DIR/vendor/etc" || return 1
 
 LOG "- Repacking $BOOT_FILE"
 

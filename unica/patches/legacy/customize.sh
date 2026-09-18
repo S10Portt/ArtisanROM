@@ -334,18 +334,23 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "36" ]; then
     write /dev/stune/nnapi-hal/schedtune.prefer_idle 1\" \"$WORK_DIR/system/system/etc/init/hw/init.rc\""
         fi
 
+        TASK_PROFILE_METADATA_POLICY=""
+        if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+            TASK_PROFILE_METADATA_POLICY="hwc1-gzd7-task-profiles"
+        fi
         ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" \
-            "system/etc/task_profiles/cgroups_28.json" 0 0 644 "u:object_r:cgroup_desc_file:s0"
+            "system/etc/task_profiles/cgroups_28.json" 0 0 644 "u:object_r:cgroup_desc_file:s0" "$TASK_PROFILE_METADATA_POLICY"
         ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" \
-            "system/etc/task_profiles/cgroups_29.json" 0 0 644 "u:object_r:cgroup_desc_file:s0"
+            "system/etc/task_profiles/cgroups_29.json" 0 0 644 "u:object_r:cgroup_desc_file:s0" "$TASK_PROFILE_METADATA_POLICY"
         ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" \
-            "system/etc/task_profiles/cgroups_30.json" 0 0 644 "u:object_r:cgroup_desc_file:s0"
+            "system/etc/task_profiles/cgroups_30.json" 0 0 644 "u:object_r:cgroup_desc_file:s0" "$TASK_PROFILE_METADATA_POLICY"
         ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" \
-            "system/etc/task_profiles/task_profiles_28.json" 0 0 644 "u:object_r:task_profiles_file:s0"
+            "system/etc/task_profiles/task_profiles_28.json" 0 0 644 "u:object_r:task_profiles_file:s0" "$TASK_PROFILE_METADATA_POLICY"
         ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" \
-            "system/etc/task_profiles/task_profiles_29.json" 0 0 644 "u:object_r:task_profiles_file:s0"
+            "system/etc/task_profiles/task_profiles_29.json" 0 0 644 "u:object_r:task_profiles_file:s0" "$TASK_PROFILE_METADATA_POLICY"
         ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" \
-            "system/etc/task_profiles/task_profiles_30.json" 0 0 644 "u:object_r:task_profiles_file:s0"
+            "system/etc/task_profiles/task_profiles_30.json" 0 0 644 "u:object_r:task_profiles_file:s0" "$TASK_PROFILE_METADATA_POLICY"
+        unset TASK_PROFILE_METADATA_POLICY
     fi
 
     unset KERNEL_VERSION LEGACY_KERNEL
@@ -467,14 +472,18 @@ fi
 if ! grep -q "\"version\": \"4\." "$WORK_DIR/vendor/etc/midas/midas_config.json"; then
     if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "35" ]; then
         PATCHED=true
-        DELETE_FROM_WORK_DIR "vendor" "etc/midas"
+        if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+            python3 "$SRC_DIR/scripts/utils/s10_midas_input.py" \
+                "$SRC_DIR/prebuilts/samsung/a73xqxx" || return 1
+        fi
+        DELETE_FROM_WORK_DIR "vendor" "etc/midas" || return 1
         ADD_TO_WORK_DIR "a73xqxx" "vendor" \
-            "etc/midas" 0 2000 755 "u:object_r:vendor_configs_file:s0"
+            "etc/midas" 0 2000 755 "u:object_r:vendor_configs_file:s0" || return 1
     fi
     if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "36" ]; then
         PATCHED=true
         ADD_TO_WORK_DIR "$SOURCE_FIRMWARE" "vendor" \
-            "etc/midas/midas_config.json" 0 0 644 "u:object_r:vendor_configs_file:s0"
+            "etc/midas/midas_config.json" 0 0 644 "u:object_r:vendor_configs_file:s0" || return 1
     fi
 fi
 

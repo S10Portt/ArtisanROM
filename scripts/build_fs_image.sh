@@ -20,6 +20,35 @@ FILE_CONTEXT_FILE=""
 FS_CONFIG_FILE=""
 
 # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/build_image.py#266
+# Derive a generated directory label only from an unambiguous root rule.
+COUNT_IMAGE_DIRECTORY_CONTEXT()
+{
+    awk 'BEGIN { key=ARGV[1]; ARGV[1]="" }
+        /^[[:space:]]*#/ || NF==0 { next }
+        $1==key {
+            count++
+            if (NF==2) value=$2
+            else if (NF==3 && $2=="-d") value=$3
+            else invalid=1
+            if (value !~ /^[^:[:space:]]+:[^:[:space:]]+:[^:[:space:]]+:[^[:space:]]+$/) invalid=1
+        }
+        END { if (invalid || count>1) exit 1; print count+0 }' "$1" "$FILE_CONTEXT_FILE"
+}
+
+GET_IMAGE_ROOT_CONTEXT()
+{
+    awk 'BEGIN { key=ARGV[1]; ARGV[1]="" }
+        /^[[:space:]]*#/ || NF==0 { next }
+        $1==key {
+            if (NF!=2) invalid=1
+            value=$2; count++
+        }
+        END {
+            if (invalid || count!=1 || value !~ /^[^:[:space:]]+:[^:[:space:]]+:[^:[:space:]]+:[^[:space:]]+$/) exit 1
+            print value
+        }' "/$PARTITION" "$FILE_CONTEXT_FILE"
+}
+
 BUILD_IMAGE_MKFS()
 {
     local SPARSE=$SPARSE
@@ -60,19 +89,34 @@ BUILD_IMAGE_MKFS()
             BUILD_CMD+="\"$FILE_CONTEXT_FILE\""
 
             # Avoid build failures if lost+found entry is not in file_context/fs_config
-            if ! grep -q -F "lost+found" "$FILE_CONTEXT_FILE"; then
+            local LOST_KEY="lost+found" LOST_COUNT
+            [[ "$PARTITION" != "system" ]] && LOST_KEY="$PARTITION/$LOST_KEY"
+            LOST_COUNT=$(COUNT_IMAGE_DIRECTORY_CONTEXT "/${LOST_KEY//+/\\+}") || exit 1
+            if [[ "$LOST_COUNT" -gt 1 ]]; then
+                LOGE "Duplicate lost+found file_context key"
+                exit 1
+            fi
+            if [[ "$LOST_COUNT" -eq 0 ]]; then
                 if [[ "$PARTITION" == "system" ]]; then
-                    echo "/lost\+found u:object_r:rootfs:s0" >> "$FILE_CONTEXT_FILE"
+                    echo "/lost\+found u:object_r:rootfs:s0" >> "$FILE_CONTEXT_FILE" || exit 1
                 else
-                    echo "/$PARTITION/lost\+found $(head -n 1 "$FILE_CONTEXT_FILE" | cut -f 2 -d " ")" >> "$FILE_CONTEXT_FILE"
+                    local ROOT_CONTEXT
+                    ROOT_CONTEXT=$(GET_IMAGE_ROOT_CONTEXT) || exit 1
+                    echo "/$PARTITION/lost\+found $ROOT_CONTEXT" >> "$FILE_CONTEXT_FILE" || exit 1
                 fi
             fi
 
-            if ! grep -q -F "lost+found" "$FS_CONFIG_FILE"; then
+            LOST_COUNT=$(awk 'BEGIN { key=ARGV[1]; ARGV[1]="" }
+                $1 == key { count++ } END { print count+0 }' "$LOST_KEY" "$FS_CONFIG_FILE") || exit 1
+            if [[ "$LOST_COUNT" -gt 1 ]]; then
+                LOGE "Duplicate lost+found fs_config key"
+                exit 1
+            fi
+            if [[ "$LOST_COUNT" -eq 0 ]]; then
                 if [[ "$PARTITION" == "system" ]]; then
-                    echo "lost+found 0 0 700 capabilities=0x0" >> "$FS_CONFIG_FILE"
+                    echo "lost+found 0 0 700 capabilities=0x0" >> "$FS_CONFIG_FILE" || exit 1
                 else
-                    echo "$PARTITION/lost+found 0 0 700 capabilities=0x0" >> "$FS_CONFIG_FILE"
+                    echo "$PARTITION/lost+found 0 0 700 capabilities=0x0" >> "$FS_CONFIG_FILE" || exit 1
                 fi
             fi
             ;;
@@ -81,6 +125,14 @@ BUILD_IMAGE_MKFS()
             # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/core/Makefile#2084
             BUILD_CMD+="-z \"lz4hc,9\" "
             BUILD_CMD+="-b \"4096\" "
+            if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+                local EROFS_TOOL EROFS_TOOL_HASH
+                EROFS_TOOL=$(command -v mkfs.erofs) || exit 1
+                EROFS_TOOL_HASH=$(sha256sum "$EROFS_TOOL") || exit 1
+                LOG "- S10 mkfs.erofs identity: $EROFS_TOOL_HASH"
+                # Keep physical clusters at the working S10 format's 4KiB size.
+                BUILD_CMD+="-C 4096 "
+            fi
             BUILD_CMD+="--mount-point \"$MOUNT_POINT\" "
             BUILD_CMD+="--fs-config-file \"$FS_CONFIG_FILE\" "
             BUILD_CMD+="--file-contexts \"$FILE_CONTEXT_FILE\" "
@@ -117,13 +169,22 @@ BUILD_IMAGE_MKFS()
             BUILD_CMD+="-b \"4096\""
 
             # Usual f2fs f***-ups
-            if [[ "$PARTITION" != "system" ]] && ! grep -q "^/$PARTITION/$PARTITION " "$FILE_CONTEXT_FILE"; then
-                echo "/$PARTITION/$PARTITION $(head -n 1 "$FILE_CONTEXT_FILE" | cut -d " " -f 2)" >> "$FILE_CONTEXT_FILE"
+            if [[ "$PARTITION" != "system" ]]; then
+                local FIXUP_COUNT ROOT_CONTEXT
+                FIXUP_COUNT=$(COUNT_IMAGE_DIRECTORY_CONTEXT "/$PARTITION/$PARTITION") || exit 1
+                if [[ "$FIXUP_COUNT" == 0 ]]; then
+                    ROOT_CONTEXT=$(GET_IMAGE_ROOT_CONTEXT) || exit 1
+                    echo "/$PARTITION/$PARTITION $ROOT_CONTEXT" >> "$FILE_CONTEXT_FILE" || exit 1
+                fi
             fi
             ;;
     esac
 
     EVAL "$BUILD_CMD" || exit 1
+
+    if [[ "$TARGET_CODENAME" == "beyond1lte" && "$FS_TYPE" == "erofs" ]]; then
+        python3 "$SRC_DIR/scripts/utils/s10_erofs.py" "$OUTPUT_FILE" || exit 1
+    fi
 
     if $MANUAL_SPARSE; then
         EVAL "img2simg \"$OUTPUT_FILE\" \"$OUTPUT_FILE.sparse\"" || exit 1
@@ -482,6 +543,11 @@ fi
 if $AVB_SIGN; then
     LOG "- Signing image with AVB"
     EVAL "$(GET_AVBTOOL_CMD)" || exit 1
+fi
+
+# Recheck after sparse conversion and all AVB image changes.
+if [[ "$TARGET_CODENAME" == "beyond1lte" && "$FS_TYPE" == "erofs" ]]; then
+    python3 "$SRC_DIR/scripts/utils/s10_erofs.py" "$OUTPUT_FILE" || exit 1
 fi
 
 LOG_STEP_OUT

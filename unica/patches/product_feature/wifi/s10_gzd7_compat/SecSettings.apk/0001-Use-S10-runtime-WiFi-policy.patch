@@ -1,0 +1,3858 @@
+From: Salvo Giangreco <giangrecosalvo9@gmail.com>
+Subject: [PATCH] Adapt S10 runtime Wi-Fi policy to GZD7
+
+Derived from the existing 80211AX and 6GHz patches. GZD7 forward input.
+Hotspot SPF_6G remains unchanged here; its separate policy runs later.
+
+--- a/smali/com/android/settings/wifi/slice/WifiSlice.smali
++++ b/smali/com/android/settings/wifi/slice/WifiSlice.smali
+@@ -25,14 +25,6 @@
+ 
+ .field public static final STATE_SECURED:[I
+ 
+-.field public static final STATE_WIFI6E_NONE:[I
+-
+-.field public static final STATE_WIFI6E_SECURED:[I
+-
+-.field public static final STATE_WIFI6_NONE:[I
+-
+-.field public static final STATE_WIFI6_SECURED:[I
+-
+ 
+ # instance fields
+ .field public final mContext:Landroid/content/Context;
+@@ -48,49 +40,21 @@
+ 
+ # direct methods
+ .method static constructor <clinit>()V
+-    .locals 3
++    .locals 1
+ 
+     const v0, 0x7f0405f9
+ 
+     filled-new-array {v0}, [I
+ 
+-    move-result-object v1
+-
+-    sput-object v1, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_SECURED:[I
+-
+-    const/4 v1, 0x0
+-
+-    new-array v1, v1, [I
+-
+-    sput-object v1, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_NONE:[I
+-
+-    const v1, 0x7f040603
+-
+-    filled-new-array {v1, v0}, [I
+-
+-    move-result-object v2
+-
+-    sput-object v2, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_WIFI6_SECURED:[I
+-
+-    filled-new-array {v1}, [I
+-
+-    move-result-object v1
+-
+-    sput-object v1, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_WIFI6_NONE:[I
+-
+-    const v1, 0x7f040604
+-
+-    filled-new-array {v1, v0}, [I
+-
+     move-result-object v0
+ 
+-    sput-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_WIFI6E_SECURED:[I
+-
+-    filled-new-array {v1}, [I
+-
+-    move-result-object v0
+-
+-    sput-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_WIFI6E_NONE:[I
++    sput-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_SECURED:[I
++
++    const/4 v0, 0x0
++
++    new-array v0, v0, [I
++
++    sput-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_NONE:[I
+ 
+     return-void
+ .end method
+@@ -944,7 +908,7 @@
+ 
+     iget-object v1, p0, Lcom/android/settings/wifi/slice/WifiSlice;->mFrictionSld:Landroid/graphics/drawable/StateListDrawable;
+ 
+-    if-eqz v1, :cond_6
++    if-eqz v1, :cond_3
+ 
+     sget-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_NONE:[I
+ 
+@@ -954,93 +918,52 @@
+ 
+     const/4 p1, -0x1
+ 
+-    goto :goto_3
++    goto :goto_1
+ 
+     :cond_0
+-    iget-boolean v2, p1, Lcom/android/settings/wifi/slice/WifiSliceItem;->mIsWifi6ENetwork:Z
+-
+-    iget v3, p1, Lcom/android/settings/wifi/slice/WifiSliceItem;->mSecurity:I
++    sget-object v2, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->mSubscriptionManager:Landroid/telephony/SubscriptionManager;
++
++    iget v2, p1, Lcom/android/settings/wifi/slice/WifiSliceItem;->mSecurity:I
+ 
+     if-eqz v2, :cond_2
+ 
+-    invoke-static {v3}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isSecured(I)Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_1
+-
+-    sget-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_WIFI6E_SECURED:[I
++    const/4 v3, 0x4
++
++    if-ne v2, v3, :cond_1
+ 
+     goto :goto_0
+ 
+     :cond_1
+-    sget-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_WIFI6E_NONE:[I
+-
++    sget-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_SECURED:[I
++
++    :cond_2
+     :goto_0
+     invoke-virtual {v1, v0}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+ 
+-    goto :goto_2
+-
+-    :cond_2
+-    iget-boolean v2, p1, Lcom/android/settings/wifi/slice/WifiSliceItem;->mIsWifi6Network:Z
+-
+-    if-eqz v2, :cond_4
+-
+-    invoke-static {v3}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isSecured(I)Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_3
+-
+-    sget-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_WIFI6_SECURED:[I
+-
+-    goto :goto_1
++    iget p1, p1, Lcom/android/settings/wifi/slice/WifiSliceItem;->mLevel:I
++
++    :goto_1
++    new-instance v0, Landroid/graphics/drawable/InsetDrawable;
++
++    iget-object p0, p0, Lcom/android/settings/wifi/slice/WifiSlice;->mFrictionSld:Landroid/graphics/drawable/StateListDrawable;
++
++    invoke-virtual {p0}, Landroid/graphics/drawable/StateListDrawable;->getCurrent()Landroid/graphics/drawable/Drawable;
++
++    move-result-object v1
++
++    const/4 v4, 0x6
++
++    const/4 v5, 0x6
++
++    const/4 v2, 0x6
++
++    const/4 v3, 0x6
++
++    invoke-direct/range {v0 .. v5}, Landroid/graphics/drawable/InsetDrawable;-><init>(Landroid/graphics/drawable/Drawable;IIII)V
++
++    invoke-virtual {v0, p1}, Landroid/graphics/drawable/Drawable;->setLevel(I)Z
+ 
+     :cond_3
+-    sget-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_WIFI6_NONE:[I
+-
+-    :goto_1
+-    invoke-virtual {v1, v0}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_4
+-    invoke-static {v3}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isSecured(I)Z
+-
+-    move-result v2
+-
+-    if-eqz v2, :cond_5
+-
+-    sget-object v0, Lcom/android/settings/wifi/slice/WifiSlice;->STATE_SECURED:[I
+-
+-    :cond_5
+-    invoke-virtual {v1, v0}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    :goto_2
+-    iget p1, p1, Lcom/android/settings/wifi/slice/WifiSliceItem;->mLevel:I
+-
+-    :goto_3
+-    new-instance v0, Landroid/graphics/drawable/InsetDrawable;
+-
+-    iget-object p0, p0, Lcom/android/settings/wifi/slice/WifiSlice;->mFrictionSld:Landroid/graphics/drawable/StateListDrawable;
+-
+-    invoke-virtual {p0}, Landroid/graphics/drawable/StateListDrawable;->getCurrent()Landroid/graphics/drawable/Drawable;
+-
+-    move-result-object v1
+-
+-    const/4 v4, 0x6
+-
+-    const/4 v5, 0x6
+-
+-    const/4 v2, 0x6
+-
+-    const/4 v3, 0x6
+-
+-    invoke-direct/range {v0 .. v5}, Landroid/graphics/drawable/InsetDrawable;-><init>(Landroid/graphics/drawable/Drawable;IIII)V
+-
+-    invoke-virtual {v0, p1}, Landroid/graphics/drawable/Drawable;->setLevel(I)Z
+-
+-    :cond_6
+     invoke-static {v0}, Lcom/android/settings/Utils;->createIconWithDrawable(Landroid/graphics/drawable/Drawable;)Landroidx/core/graphics/drawable/IconCompat;
+ 
+     move-result-object p0
+--- a/smali/com/android/settings/wifi/slice/WifiSliceItem.smali
++++ b/smali/com/android/settings/wifi/slice/WifiSliceItem.smali
+@@ -16,10 +16,6 @@
+ 
+ .field public final mIsInstantHotspotNetwork:Z
+ 
+-.field public final mIsWifi6ENetwork:Z
+-
+-.field public final mIsWifi6Network:Z
+-
+ .field public final mKey:Ljava/lang/String;
+ 
+ .field public final mLevel:I
+@@ -134,18 +130,6 @@
+     iput p1, p0, Lcom/android/settings/wifi/slice/WifiSliceItem;->mInstantHotspotDeviceType:I
+ 
+     :cond_0
+-    invoke-virtual {p2}, Lcom/android/wifitrackerlib/WifiEntry;->semIsWifi6ENetwork()Z
+-
+-    move-result p1
+-
+-    iput-boolean p1, p0, Lcom/android/settings/wifi/slice/WifiSliceItem;->mIsWifi6ENetwork:Z
+-
+-    invoke-virtual {p2}, Lcom/android/wifitrackerlib/WifiEntry;->semIsWifi6Network()Z
+-
+-    move-result p1
+-
+-    iput-boolean p1, p0, Lcom/android/settings/wifi/slice/WifiSliceItem;->mIsWifi6Network:Z
+-
+     iget-object p0, p2, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
+ 
+     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+--- a/smali/com/android/wifitrackerlib/StandardWifiEntry$$ExternalSyntheticLambda8.smali
++++ /dev/null
+@@ -1,40 +0,0 @@
+-.class public final synthetic Lcom/android/wifitrackerlib/StandardWifiEntry$$ExternalSyntheticLambda8;
+-.super Ljava/lang/Object;
+-.source "qb/109482448 6d761c2a10315b9c58529a348a0add72c833c8eacc639e1eb1a03a7f5b07f23b"
+-
+-# interfaces
+-.implements Ljava/util/function/Predicate;
+-
+-
+-# virtual methods
+-.method public final test(Ljava/lang/Object;)Z
+-    .locals 1
+-
+-    check-cast p1, Landroid/net/wifi/ScanResult;
+-
+-    iget p0, p1, Landroid/net/wifi/ScanResult;->frequency:I
+-
+-    sget-object p1, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->mSubscriptionManager:Landroid/telephony/SubscriptionManager;
+-
+-    const/16 p1, 0x1725
+-
+-    const/4 v0, 0x1
+-
+-    if-lt p0, p1, :cond_0
+-
+-    const/16 p1, 0x1bd5
+-
+-    if-gt p0, p1, :cond_0
+-
+-    move p0, v0
+-
+-    goto :goto_0
+-
+-    :cond_0
+-    const/4 p0, 0x0
+-
+-    :goto_0
+-    xor-int/2addr p0, v0
+-
+-    return p0
+-.end method
+--- a/smali/com/android/wifitrackerlib/StandardWifiEntry.smali
++++ b/smali/com/android/wifitrackerlib/StandardWifiEntry.smali
+@@ -4473,51 +4473,6 @@
+     .catchall {:try_start_1 .. :try_end_1} :catchall_0
+ 
+     throw p1
+-.end method
+-
+-.method public final declared-synchronized semIs6GHzOnly()Z
+-    .locals 2
+-
+-    monitor-enter p0
+-
+-    :try_start_0
+-    iget-object v0, p0, Lcom/android/wifitrackerlib/StandardWifiEntry;->mTargetScanResults:Ljava/util/List;
+-
+-    invoke-interface {v0}, Ljava/util/List;->stream()Ljava/util/stream/Stream;
+-
+-    move-result-object v0
+-
+-    new-instance v1, Lcom/android/wifitrackerlib/StandardWifiEntry$$ExternalSyntheticLambda8;
+-
+-    invoke-direct {v1}, Ljava/lang/Object;-><init>()V
+-
+-    invoke-interface {v0, v1}, Ljava/util/stream/Stream;->filter(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+-
+-    move-result-object v0
+-
+-    invoke-interface {v0}, Ljava/util/stream/Stream;->findAny()Ljava/util/Optional;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {v0}, Ljava/util/Optional;->isEmpty()Z
+-
+-    move-result v0
+-    :try_end_0
+-    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+-
+-    monitor-exit p0
+-
+-    return v0
+-
+-    :catchall_0
+-    move-exception v0
+-
+-    :try_start_1
+-    monitor-exit p0
+-    :try_end_1
+-    .catchall {:try_start_1 .. :try_end_1} :catchall_0
+-
+-    throw v0
+ .end method
+ 
+ .method public final semIsAdminRestricted()Z
+--- a/smali/com/android/wifitrackerlib/WifiEntry.smali
++++ b/smali/com/android/wifitrackerlib/WifiEntry.smali
+@@ -400,60 +400,6 @@
+ .method public canSignIn()Z
+     .locals 0
+ 
+-    const/4 p0, 0x0
+-
+-    return p0
+-.end method
+-
+-.method public final checkWifi6EStandard(II)Z
+-    .locals 1
+-
+-    sget-object v0, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->mSubscriptionManager:Landroid/telephony/SubscriptionManager;
+-
+-    const/16 v0, 0x1725
+-
+-    if-lt p1, v0, :cond_1
+-
+-    const/16 v0, 0x1bd5
+-
+-    if-gt p1, v0, :cond_1
+-
+-    const/4 p1, 0x6
+-
+-    if-lt p2, p1, :cond_0
+-
+-    const/4 p0, 0x1
+-
+-    return p0
+-
+-    :cond_0
+-    new-instance p1, Ljava/lang/StringBuilder;
+-
+-    const-string v0, "invalid Wi-Fi 6E network "
+-
+-    invoke-direct {p1, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+-
+-    invoke-virtual {p0}, Lcom/android/wifitrackerlib/WifiEntry;->getKey()Ljava/lang/String;
+-
+-    move-result-object p0
+-
+-    invoke-virtual {p1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    const-string p0, " standard:"
+-
+-    invoke-virtual {p1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {p1, p2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object p0
+-
+-    const-string p1, "WifiEntry."
+-
+-    invoke-static {p1, p0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    :cond_1
+     const/4 p0, 0x0
+ 
+     return p0
+@@ -1754,171 +1700,16 @@
+     return p0
+ .end method
+ 
+-.method public final semGetHighestSecurity()I
+-    .locals 7
+-
+-    invoke-virtual {p0}, Lcom/android/wifitrackerlib/WifiEntry;->getSecurityTypes()Ljava/util/List;
++.method public semGetSecurityString(Ljava/lang/String;)Ljava/lang/String;
++    .locals 0
++
++    const/4 p1, 0x0
++
++    invoke-virtual {p0, p1}, Lcom/android/wifitrackerlib/WifiEntry;->getSecurityString(Z)Ljava/lang/String;
+ 
+     move-result-object p0
+ 
+-    sget-object v0, Lcom/android/wifitrackerlib/Utils;->defaultSsidList:Ljava/util/List;
+-
+-    invoke-interface {p0}, Ljava/util/List;->size()I
+-
+-    move-result v0
+-
+-    const/4 v1, 0x4
+-
+-    const/4 v2, 0x6
+-
+-    const/4 v3, 0x2
+-
+-    const/4 v4, 0x1
+-
+-    const/4 v5, 0x0
+-
+-    if-ne v0, v4, :cond_0
+-
+-    invoke-interface {p0, v5}, Ljava/util/List;->get(I)Ljava/lang/Object;
+-
+-    move-result-object p0
+-
+-    check-cast p0, Ljava/lang/Integer;
+-
+-    invoke-virtual {p0}, Ljava/lang/Integer;->intValue()I
+-
+-    move-result p0
+-
+-    goto :goto_0
+-
+-    :cond_0
+-    invoke-interface {p0}, Ljava/util/List;->size()I
+-
+-    move-result v0
+-
+-    if-ne v0, v3, :cond_3
+-
+-    invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+-
+-    move-result-object v0
+-
+-    invoke-interface {p0, v0}, Ljava/util/List;->contains(Ljava/lang/Object;)Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_1
+-
+-    move p0, v2
+-
+-    goto :goto_0
+-
+-    :cond_1
+-    invoke-static {v1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+-
+-    move-result-object v0
+-
+-    invoke-interface {p0, v0}, Ljava/util/List;->contains(Ljava/lang/Object;)Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_2
+-
+-    move p0, v1
+-
+-    goto :goto_0
+-
+-    :cond_2
+-    const/16 v0, 0x9
+-
+-    invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+-
+-    move-result-object v6
+-
+-    invoke-interface {p0, v6}, Ljava/util/List;->contains(Ljava/lang/Object;)Z
+-
+-    move-result p0
+-
+-    if-eqz p0, :cond_3
+-
+-    move p0, v0
+-
+-    goto :goto_0
+-
+-    :cond_3
+-    const/4 p0, -0x1
+-
+-    :goto_0
+-    packed-switch p0, :pswitch_data_0
+-
+-    :pswitch_0
+-    return v5
+-
+-    :pswitch_1
+-    const/4 p0, 0x7
+-
+-    return p0
+-
+-    :pswitch_2
+-    return v1
+-
+-    :pswitch_3
+-    return v2
+-
+-    :pswitch_4
+-    const/4 p0, 0x5
+-
+-    return p0
+-
+-    :pswitch_5
+-    const/4 p0, 0x3
+-
+-    return p0
+-
+-    :pswitch_6
+-    return v3
+-
+-    :pswitch_7
+-    return v4
+-
+-    :pswitch_8
+-    return v5
+-
+-    :pswitch_data_0
+-    .packed-switch 0x0
+-        :pswitch_8
+-        :pswitch_7
+-        :pswitch_6
+-        :pswitch_5
+-        :pswitch_4
+-        :pswitch_3
+-        :pswitch_2
+-        :pswitch_0
+-        :pswitch_0
+-        :pswitch_1
+-        :pswitch_0
+-        :pswitch_5
+-        :pswitch_5
+-    .end packed-switch
+-.end method
+-
+-.method public semGetSecurityString(Ljava/lang/String;)Ljava/lang/String;
+-    .locals 0
+-
+-    const/4 p1, 0x0
+-
+-    invoke-virtual {p0, p1}, Lcom/android/wifitrackerlib/WifiEntry;->getSecurityString(Z)Ljava/lang/String;
+-
+-    move-result-object p0
+-
+     return-object p0
+-.end method
+-
+-.method public semIs6GHzOnly()Z
+-    .locals 0
+-
+-    const/4 p0, 0x0
+-
+-    return p0
+ .end method
+ 
+ .method public semIsAdminRestricted()Z
+@@ -1972,72 +1763,6 @@
+     return p0
+ .end method
+ 
+-.method public final semIsWifi6ENetwork()Z
+-    .locals 2
+-
+-    iget-object v0, p0, Lcom/android/wifitrackerlib/WifiEntry;->mWifiInfo:Landroid/net/wifi/WifiInfo;
+-
+-    if-eqz v0, :cond_0
+-
+-    invoke-virtual {v0}, Landroid/net/wifi/WifiInfo;->getFrequency()I
+-
+-    move-result v1
+-
+-    invoke-virtual {v0}, Landroid/net/wifi/WifiInfo;->getWifiStandard()I
+-
+-    move-result v0
+-
+-    invoke-virtual {p0, v1, v0}, Lcom/android/wifitrackerlib/WifiEntry;->checkWifi6EStandard(II)Z
+-
+-    move-result p0
+-
+-    return p0
+-
+-    :cond_0
+-    iget-object p0, p0, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
+-
+-    iget-boolean p0, p0, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->has6EStandard:Z
+-
+-    return p0
+-.end method
+-
+-.method public final semIsWifi6Network()Z
+-    .locals 4
+-
+-    iget-object v0, p0, Lcom/android/wifitrackerlib/WifiEntry;->mWifiInfo:Landroid/net/wifi/WifiInfo;
+-
+-    const/4 v1, 0x0
+-
+-    const/4 v2, 0x1
+-
+-    const/4 v3, 0x6
+-
+-    if-eqz v0, :cond_1
+-
+-    invoke-virtual {v0}, Landroid/net/wifi/WifiInfo;->getWifiStandard()I
+-
+-    move-result p0
+-
+-    if-ne p0, v3, :cond_0
+-
+-    return v2
+-
+-    :cond_0
+-    return v1
+-
+-    :cond_1
+-    iget-object p0, p0, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
+-
+-    iget p0, p0, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->wifiStandard:I
+-
+-    if-lt p0, v3, :cond_2
+-
+-    return v2
+-
+-    :cond_2
+-    return v1
+-.end method
+-
+ .method public semMatches(Landroid/net/wifi/WifiConfiguration;)Z
+     .locals 0
+ 
+@@ -2053,374 +1778,419 @@
+ .end method
+ 
+ .method public final semUpdateFlags(Landroid/net/wifi/ScanResult;)V
+-    .locals 12
++    .locals 13
++
++    const/4 v0, 0x1
+ 
+     if-nez p1, :cond_0
+ 
+-    goto/16 :goto_2
++    goto/16 :goto_3
+ 
+     :cond_0
+     invoke-virtual {p1}, Landroid/net/wifi/ScanResult;->getWifiStandard()I
+ 
+-    move-result v0
+-
+-    iget-object v1, p0, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
+-
+-    iget v2, v1, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->wifiStandard:I
+-
+-    invoke-static {v2, v0}, Ljava/lang/Math;->max(II)I
+-
+-    move-result v0
+-
+-    iput v0, v1, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->wifiStandard:I
+-
+-    iget-boolean v2, v1, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->has6EStandard:Z
+-
+-    if-nez v2, :cond_1
+-
+-    iget v2, p1, Landroid/net/wifi/ScanResult;->frequency:I
+-
+-    invoke-virtual {p0, v2, v0}, Lcom/android/wifitrackerlib/WifiEntry;->checkWifi6EStandard(II)Z
+-
+-    move-result v0
+-
+-    iput-boolean v0, v1, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->has6EStandard:Z
++    move-result v1
++
++    iget-object v2, p0, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
++
++    iget v3, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->wifiStandard:I
++
++    invoke-static {v3, v1}, Ljava/lang/Math;->max(II)I
++
++    move-result v1
++
++    iput v1, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->wifiStandard:I
++
++    iget-boolean v3, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->has6EStandard:Z
++
++    const/4 v4, 0x0
++
++    const-string v5, "WifiEntry."
++
++    if-nez v3, :cond_3
++
++    iget v3, p1, Landroid/net/wifi/ScanResult;->frequency:I
++
++    sget-object v6, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->mSubscriptionManager:Landroid/telephony/SubscriptionManager;
++
++    const/16 v6, 0x1725
++
++    if-lt v3, v6, :cond_2
++
++    const/16 v6, 0x1bd5
++
++    if-gt v3, v6, :cond_2
++
++    const/4 v3, 0x6
++
++    if-lt v1, v3, :cond_1
++
++    move v1, v0
++
++    goto :goto_0
+ 
+     :cond_1
++    new-instance v3, Ljava/lang/StringBuilder;
++
++    const-string v6, "invalid Wi-Fi 6E network "
++
++    invoke-direct {v3, v6}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
++
++    invoke-virtual {p0}, Lcom/android/wifitrackerlib/WifiEntry;->getKey()Ljava/lang/String;
++
++    move-result-object v6
++
++    invoke-virtual {v3, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    const-string v6, " standard:"
++
++    invoke-virtual {v3, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object v1
++
++    invoke-static {v5, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    :cond_2
++    move v1, v4
++
++    :goto_0
++    iput-boolean v1, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->has6EStandard:Z
++
++    :cond_3
+     invoke-virtual {p1}, Landroid/net/wifi/ScanResult;->getInformationElements()Ljava/util/List;
+ 
+-    move-result-object v0
+-
+-    invoke-interface {v0}, Ljava/util/List;->iterator()Ljava/util/Iterator;
+-
+-    move-result-object v0
+-
+-    :cond_2
+-    :goto_0
+-    invoke-interface {v0}, Ljava/util/Iterator;->hasNext()Z
+-
+-    move-result v2
+-
+-    if-eqz v2, :cond_c
+-
+-    invoke-interface {v0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
+-
+-    move-result-object v2
+-
+-    check-cast v2, Landroid/net/wifi/ScanResult$InformationElement;
+-
+-    invoke-virtual {v2}, Landroid/net/wifi/ScanResult$InformationElement;->getId()I
++    move-result-object v1
++
++    invoke-interface {v1}, Ljava/util/List;->iterator()Ljava/util/Iterator;
++
++    move-result-object v1
++
++    :cond_4
++    :goto_1
++    invoke-interface {v1}, Ljava/util/Iterator;->hasNext()Z
+ 
+     move-result v3
+ 
+-    const/16 v4, 0xb
+-
+-    const/4 v5, 0x0
+-
+-    const-string v6, " BufferUnderflowException ie:"
+-
+-    iget-object v7, p0, Lcom/android/wifitrackerlib/WifiEntry;->mLog:Lcom/samsung/android/wifitrackerlib/LogUtils;
+-
+-    const-string v8, "WifiEntry."
+-
+-    if-eq v3, v4, :cond_b
+-
+-    const/4 v4, 0x1
+-
+-    const/16 v9, 0x32
++    if-eqz v3, :cond_e
++
++    invoke-interface {v1}, Ljava/util/Iterator;->next()Ljava/lang/Object;
++
++    move-result-object v3
++
++    check-cast v3, Landroid/net/wifi/ScanResult$InformationElement;
++
++    invoke-virtual {v3}, Landroid/net/wifi/ScanResult$InformationElement;->getId()I
++
++    move-result v6
++
++    const/16 v7, 0xb
++
++    const-string v8, " BufferUnderflowException ie:"
++
++    iget-object v9, p0, Lcom/android/wifitrackerlib/WifiEntry;->mLog:Lcom/samsung/android/wifitrackerlib/LogUtils;
++
++    if-eq v6, v7, :cond_d
++
++    const/16 v7, 0x32
+ 
+     const/16 v10, 0x8
+ 
+-    if-eq v3, v9, :cond_7
+-
+-    const/16 v5, 0xdd
+-
+-    if-eq v3, v5, :cond_6
+-
+-    const/16 v5, 0xf4
+-
+-    if-eq v3, v5, :cond_3
+-
+-    goto :goto_0
+-
+-    :cond_3
+-    invoke-virtual {v2}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
+-
+-    move-result-object v5
+-
+-    if-nez v5, :cond_4
+-
+-    goto/16 :goto_2
+-
+-    :cond_4
+-    invoke-virtual {v2}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
+-
+-    move-result-object v5
+-
+-    invoke-virtual {v5}, Ljava/nio/ByteBuffer;->remaining()I
+-
+-    move-result v5
+-
+-    new-array v9, v5, [B
+-
+-    if-gt v5, v10, :cond_c
+-
+-    if-ge v5, v4, :cond_5
+-
+-    goto/16 :goto_2
++    if-eq v6, v7, :cond_9
++
++    const/16 v7, 0xdd
++
++    if-eq v6, v7, :cond_8
++
++    const/16 v7, 0xf4
++
++    if-eq v6, v7, :cond_5
++
++    goto :goto_1
+ 
+     :cond_5
++    invoke-virtual {v3}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
++
++    move-result-object v7
++
++    if-nez v7, :cond_6
++
++    goto/16 :goto_3
++
++    :cond_6
++    invoke-virtual {v3}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
++
++    move-result-object v7
++
++    invoke-virtual {v7}, Ljava/nio/ByteBuffer;->remaining()I
++
++    move-result v7
++
++    new-array v11, v7, [B
++
++    if-gt v7, v10, :cond_e
++
++    if-ge v7, v0, :cond_7
++
++    goto/16 :goto_3
++
++    :cond_7
+     :try_start_0
+-    invoke-virtual {v2}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
+-
+-    move-result-object v2
+-
+-    sget-object v4, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
+-
+-    invoke-virtual {v2, v4}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
+-
+-    move-result-object v2
+-
+-    invoke-virtual {v2}, Ljava/nio/ByteBuffer;->get()B
++    invoke-virtual {v3}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
++
++    move-result-object v3
++
++    sget-object v7, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
++
++    invoke-virtual {v3, v7}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
++
++    move-result-object v3
++
++    invoke-virtual {v3}, Ljava/nio/ByteBuffer;->get()B
+     :try_end_0
+     .catch Ljava/nio/BufferUnderflowException; {:try_start_0 .. :try_end_0} :catch_0
+ 
+-    goto :goto_0
++    goto :goto_1
+ 
+     :catch_0
+-    new-instance v2, Ljava/lang/StringBuilder;
+-
+-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+-
+-    iget-object v4, p1, Landroid/net/wifi/ScanResult;->BSSID:Ljava/lang/String;
+-
+-    invoke-virtual {v7, v4}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
+-
+-    move-result-object v4
+-
+-    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-static {v8, v2}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    goto :goto_0
+-
+-    :cond_6
++    new-instance v3, Ljava/lang/StringBuilder;
++
++    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
++
++    iget-object v7, p1, Landroid/net/wifi/ScanResult;->BSSID:Ljava/lang/String;
++
++    invoke-virtual {v9, v7}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
++
++    move-result-object v7
++
++    invoke-virtual {v3, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-static {v5, v3}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    goto :goto_1
++
++    :cond_8
+     :try_start_1
+-    invoke-virtual {v2}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
+-
+-    move-result-object v2
+-
+-    sget-object v5, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
+-
+-    invoke-virtual {v2, v5}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
+-
+-    move-result-object v2
+-
+-    invoke-virtual {v2}, Ljava/nio/ByteBuffer;->getInt()I
+-
+-    move-result v2
+-
+-    const v5, 0xffffff
+-
+-    and-int/2addr v5, v2
+-
+-    const v9, 0x321600
+-
+-    if-ne v5, v9, :cond_2
+-
+-    ushr-int/lit8 v2, v2, 0x18
+-
+-    const/16 v5, 0x80
+-
+-    if-ne v2, v5, :cond_2
+-
+-    iput-boolean v4, v1, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isSamsungMobileHotspot:Z
++    invoke-virtual {v3}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
++
++    move-result-object v3
++
++    sget-object v7, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
++
++    invoke-virtual {v3, v7}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
++
++    move-result-object v3
++
++    invoke-virtual {v3}, Ljava/nio/ByteBuffer;->getInt()I
++
++    move-result v3
++
++    const v7, 0xffffff
++
++    and-int/2addr v7, v3
++
++    const v10, 0x321600
++
++    if-ne v7, v10, :cond_4
++
++    ushr-int/lit8 v3, v3, 0x18
++
++    const/16 v7, 0x80
++
++    if-ne v3, v7, :cond_4
++
++    iput-boolean v0, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isSamsungMobileHotspot:Z
+     :try_end_1
+     .catch Ljava/nio/BufferUnderflowException; {:try_start_1 .. :try_end_1} :catch_1
+ 
+-    goto/16 :goto_0
++    goto/16 :goto_1
+ 
+     :catch_1
+-    new-instance v2, Ljava/lang/StringBuilder;
+-
+-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+-
+-    iget-object v4, p1, Landroid/net/wifi/ScanResult;->BSSID:Ljava/lang/String;
+-
+-    invoke-virtual {v7, v4}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
+-
+-    move-result-object v4
+-
+-    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-static {v8, v2}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    goto/16 :goto_0
+-
+-    :cond_7
+-    invoke-virtual {v2}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
+-
+-    move-result-object v9
+-
+-    if-nez v9, :cond_8
+-
+-    goto/16 :goto_2
+-
+-    :cond_8
+-    invoke-virtual {v2}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
+-
+-    move-result-object v9
+-
+-    invoke-virtual {v9}, Ljava/nio/ByteBuffer;->remaining()I
+-
+-    move-result v9
+-
+-    new-array v11, v9, [B
+-
+-    if-gt v9, v10, :cond_c
+-
+-    if-ge v9, v4, :cond_9
+-
+-    goto :goto_2
++    new-instance v3, Ljava/lang/StringBuilder;
++
++    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
++
++    iget-object v7, p1, Landroid/net/wifi/ScanResult;->BSSID:Ljava/lang/String;
++
++    invoke-virtual {v9, v7}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
++
++    move-result-object v7
++
++    invoke-virtual {v3, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-static {v5, v3}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    goto/16 :goto_1
+ 
+     :cond_9
++    invoke-virtual {v3}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
++
++    move-result-object v7
++
++    if-nez v7, :cond_a
++
++    goto/16 :goto_3
++
++    :cond_a
++    invoke-virtual {v3}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
++
++    move-result-object v7
++
++    invoke-virtual {v7}, Ljava/nio/ByteBuffer;->remaining()I
++
++    move-result v7
++
++    new-array v11, v7, [B
++
++    if-gt v7, v10, :cond_e
++
++    if-ge v7, v0, :cond_b
++
++    goto/16 :goto_3
++
++    :cond_b
+     :try_start_2
+-    invoke-virtual {v2}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
+-
+-    move-result-object v2
++    invoke-virtual {v3}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
++
++    move-result-object v3
+ 
+     sget-object v10, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
+ 
+-    invoke-virtual {v2, v10}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
+-
+-    move-result-object v2
+-
+-    :goto_1
+-    if-ge v5, v9, :cond_2
+-
+-    invoke-virtual {v2}, Ljava/nio/ByteBuffer;->get()B
+-
+-    move-result v10
+-
+-    and-int/lit8 v10, v10, 0x7f
+-
+-    const/16 v11, 0x7b
+-
+-    if-ne v10, v11, :cond_a
+-
+-    iput-boolean v4, v1, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isH2EOnlyNetwork:Z
++    invoke-virtual {v3, v10}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
++
++    move-result-object v3
++
++    move v10, v4
++
++    :goto_2
++    if-ge v10, v7, :cond_4
++
++    invoke-virtual {v3}, Ljava/nio/ByteBuffer;->get()B
++
++    move-result v11
++
++    and-int/lit8 v11, v11, 0x7f
++
++    const/16 v12, 0x7b
++
++    if-ne v11, v12, :cond_c
++
++    iput-boolean v0, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isH2EOnlyNetwork:Z
+     :try_end_2
+     .catch Ljava/nio/BufferUnderflowException; {:try_start_2 .. :try_end_2} :catch_2
+ 
+-    goto/16 :goto_0
+-
+-    :cond_a
+-    add-int/lit8 v5, v5, 0x1
+-
+-    goto :goto_1
++    goto/16 :goto_1
++
++    :cond_c
++    add-int/2addr v10, v0
++
++    goto :goto_2
+ 
+     :catch_2
+-    new-instance v2, Ljava/lang/StringBuilder;
+-
+-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+-
+-    iget-object v4, p1, Landroid/net/wifi/ScanResult;->BSSID:Ljava/lang/String;
+-
+-    invoke-virtual {v7, v4}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
+-
+-    move-result-object v4
+-
+-    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-static {v8, v2}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    goto/16 :goto_0
+-
+-    :cond_b
++    new-instance v3, Ljava/lang/StringBuilder;
++
++    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
++
++    iget-object v7, p1, Landroid/net/wifi/ScanResult;->BSSID:Ljava/lang/String;
++
++    invoke-virtual {v9, v7}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
++
++    move-result-object v7
++
++    invoke-virtual {v3, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-static {v5, v3}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    goto/16 :goto_1
++
++    :cond_d
+     :try_start_3
+-    iget v4, v1, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->staCount:I
+-
+-    invoke-static {v4, v5}, Ljava/lang/Math;->max(II)I
+-
+-    move-result v4
+-
+-    invoke-virtual {v2}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
+-
+-    move-result-object v2
+-
+-    sget-object v5, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
+-
+-    invoke-virtual {v2, v5}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
+-
+-    move-result-object v2
+-
+-    invoke-virtual {v2}, Ljava/nio/ByteBuffer;->getShort()S
+-
+-    move-result v2
+-
+-    const v5, 0xffff
+-
+-    and-int/2addr v2, v5
+-
+-    add-int/2addr v4, v2
+-
+-    iput v4, v1, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->staCount:I
++    iget v7, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->staCount:I
++
++    invoke-static {v7, v4}, Ljava/lang/Math;->max(II)I
++
++    move-result v7
++
++    invoke-virtual {v3}, Landroid/net/wifi/ScanResult$InformationElement;->getBytes()Ljava/nio/ByteBuffer;
++
++    move-result-object v3
++
++    sget-object v10, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
++
++    invoke-virtual {v3, v10}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
++
++    move-result-object v3
++
++    invoke-virtual {v3}, Ljava/nio/ByteBuffer;->getShort()S
++
++    move-result v3
++
++    const v10, 0xffff
++
++    and-int/2addr v3, v10
++
++    add-int/2addr v7, v3
++
++    iput v7, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->staCount:I
+     :try_end_3
+     .catch Ljava/nio/BufferUnderflowException; {:try_start_3 .. :try_end_3} :catch_3
+ 
+-    goto/16 :goto_0
++    goto/16 :goto_1
+ 
+     :catch_3
+-    new-instance v2, Ljava/lang/StringBuilder;
+-
+-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+-
+-    iget-object v4, p1, Landroid/net/wifi/ScanResult;->BSSID:Ljava/lang/String;
+-
+-    invoke-virtual {v7, v4}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
+-
+-    move-result-object v4
+-
+-    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-static {v8, v2}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    goto/16 :goto_0
+-
+-    :cond_c
+-    :goto_2
++    new-instance v3, Ljava/lang/StringBuilder;
++
++    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
++
++    iget-object v7, p1, Landroid/net/wifi/ScanResult;->BSSID:Ljava/lang/String;
++
++    invoke-virtual {v9, v7}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
++
++    move-result-object v7
++
++    invoke-virtual {v3, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-static {v5, v3}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    goto/16 :goto_1
++
++    :cond_e
++    :goto_3
+     return-void
+ .end method
+ 
+--- a/smali_classes3/com/samsung/android/settings/wifi/AutoHotspotListAdapter.smali
++++ b/smali_classes3/com/samsung/android/settings/wifi/AutoHotspotListAdapter.smali
+@@ -8,14 +8,6 @@
+ 
+ .field public static final STATE_SECURED:[I
+ 
+-.field public static final STATE_WIFI6E_NONE:[I
+-
+-.field public static final STATE_WIFI6E_SECURED:[I
+-
+-.field public static final STATE_WIFI6_NONE:[I
+-
+-.field public static final STATE_WIFI6_SECURED:[I
+-
+ .field public static final mDefaultIconResId:I
+ 
+ 
+@@ -35,7 +27,7 @@
+ 
+ # direct methods
+ .method static constructor <clinit>()V
+-    .locals 3
++    .locals 1
+ 
+     invoke-static {}, Lcom/android/settings/Utils;->isProductDev()Z
+ 
+@@ -47,43 +39,15 @@
+ 
+     filled-new-array {v0}, [I
+ 
+-    move-result-object v1
+-
+-    sput-object v1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_SECURED:[I
+-
+-    const/4 v1, 0x0
+-
+-    new-array v1, v1, [I
+-
+-    sput-object v1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_NONE:[I
+-
+-    const v1, 0x7f040603
+-
+-    filled-new-array {v1, v0}, [I
+-
+-    move-result-object v2
+-
+-    sput-object v2, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_WIFI6_SECURED:[I
+-
+-    filled-new-array {v1}, [I
+-
+-    move-result-object v1
+-
+-    sput-object v1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_WIFI6_NONE:[I
+-
+-    const v1, 0x7f040604
+-
+-    filled-new-array {v1, v0}, [I
+-
+     move-result-object v0
+ 
+-    sput-object v0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_WIFI6E_SECURED:[I
+-
+-    filled-new-array {v1}, [I
+-
+-    move-result-object v0
+-
+-    sput-object v0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_WIFI6E_NONE:[I
++    sput-object v0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_SECURED:[I
++
++    const/4 v0, 0x0
++
++    new-array v0, v0, [I
++
++    sput-object v0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_NONE:[I
+ 
+     return-void
+ .end method
+@@ -154,7 +118,7 @@
+ .end method
+ 
+ .method public final onBindViewHolder(Landroidx/recyclerview/widget/RecyclerView$ViewHolder;I)V
+-    .locals 11
++    .locals 10
+ 
+     check-cast p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;
+ 
+@@ -164,7 +128,7 @@
+ 
+     invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+ 
+-    if-ltz p2, :cond_1b
++    if-ltz p2, :cond_15
+ 
+     iget-object v0, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mBleAccessPoints:Ljava/util/List;
+ 
+@@ -292,7 +256,7 @@
+     move v4, v9
+ 
+     :goto_0
+-    if-eqz v3, :cond_f
++    if-eqz v3, :cond_9
+ 
+     invoke-virtual {v3}, Landroid/graphics/drawable/StateListDrawable;->getCurrent()Landroid/graphics/drawable/Drawable;
+ 
+@@ -358,84 +322,22 @@
+     iput v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mNetworkType:I
+ 
+     :cond_7
+-    iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mNetworkType:I
+-
+-    sget v4, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->MHS_WIFI_6_NETWORK:I
+-
+-    sget-object v5, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_WIFI6_NONE:[I
+-
+-    sget-object v10, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_WIFI6_SECURED:[I
+-
+-    if-ne v2, v4, :cond_9
+-
+     iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mSecurity:I
+ 
+     if-ne v2, v8, :cond_8
+ 
+-    invoke-virtual {v3, v10}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
++    sget-object v2, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_SECURED:[I
++
++    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+ 
+     goto :goto_2
+ 
+     :cond_8
+-    invoke-virtual {v3, v5}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
++    sget-object v2, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_NONE:[I
++
++    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+ 
+     :cond_9
+-    sget v4, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->MHS_WIFI_6E_NETWORK:I
+-
+-    if-ne v2, v4, :cond_b
+-
+-    iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mSecurity:I
+-
+-    if-ne v2, v8, :cond_a
+-
+-    sget-object v2, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_WIFI6E_SECURED:[I
+-
+-    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_a
+-    sget-object v2, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_WIFI6E_NONE:[I
+-
+-    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_b
+-    if-ne v2, v4, :cond_d
+-
+-    iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mSecurity:I
+-
+-    if-ne v2, v8, :cond_c
+-
+-    invoke-virtual {v3, v10}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_c
+-    invoke-virtual {v3, v5}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_d
+-    iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mSecurity:I
+-
+-    if-ne v2, v8, :cond_e
+-
+-    sget-object v2, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_SECURED:[I
+-
+-    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_e
+-    sget-object v2, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->STATE_NONE:[I
+-
+-    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    :cond_f
+     :goto_2
+     sget v2, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->$r8$clinit:I
+ 
+@@ -457,7 +359,7 @@
+ 
+     invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+ 
+-    if-ne v0, v7, :cond_10
++    if-ne v0, v7, :cond_a
+ 
+     const-string v3, "onBindViewHolder() - Selected  BleAp is in connected state. THIS SHOULD HAVE BE REMOVED"
+ 
+@@ -465,172 +367,172 @@
+ 
+     goto/16 :goto_4
+ 
++    :cond_a
++    iget v3, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mBattery:I
++
++    const/16 v4, 0xf
++
++    const-string v5, " "
++
++    const v7, 0x7f140a1e
++
++    if-gt v3, v4, :cond_b
++
++    new-instance v3, Ljava/lang/StringBuilder;
++
++    const-string v4, "onBindViewHolder() - Selected  BleAp  has low battery: "
++
++    invoke-direct {v3, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
++
++    iget v4, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mBattery:I
++
++    invoke-static {v3, v4, v1}, Landroidx/recyclerview/widget/ItemTouchHelper$3$$ExternalSyntheticOutline0;->m(Ljava/lang/StringBuilder;ILjava/lang/String;)V
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    const v4, 0x7f143521
++
++    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    iget-object v3, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mView:Landroid/view/View;
++
++    invoke-virtual {v3, v9}, Landroid/view/View;->setEnabled(Z)V
++
++    goto/16 :goto_4
++
++    :cond_b
++    iget-boolean v3, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->isDataSaverEnabled:Z
++
++    if-eqz v3, :cond_c
++
++    const-string v3, "onBindViewHolder() - Selected  BleAp  DataSaver enabled: "
++
++    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    const v4, 0x7f1435f2
++
++    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    iget-object v3, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mView:Landroid/view/View;
++
++    invoke-virtual {v3, v9}, Landroid/view/View;->setEnabled(Z)V
++
++    goto/16 :goto_4
++
++    :cond_c
++    if-eq v0, v8, :cond_11
++
++    if-ne v0, v6, :cond_d
++
++    goto :goto_3
++
++    :cond_d
++    if-gez v0, :cond_e
++
++    const-string v3, "onBindViewHolder() - Selected  BleAp is in (Failed)/(Connection Timed out) state"
++
++    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    const v4, 0x7f142eb0
++
++    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    iget-object v3, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mView:Landroid/view/View;
++
++    invoke-virtual {v3, v9}, Landroid/view/View;->setEnabled(Z)V
++
++    goto :goto_4
++
++    :cond_e
++    iget-boolean v3, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->isMobileDataLimitReached:Z
++
++    if-eqz v3, :cond_f
++
++    const-string v3, "onBindViewHolder() - Selected  BleAp  isMobileDataLimitReached : "
++
++    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    const v4, 0x7f14354e
++
++    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    iget-object v3, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mView:Landroid/view/View;
++
++    invoke-virtual {v3, v9}, Landroid/view/View;->setEnabled(Z)V
++
++    goto :goto_4
++
++    :cond_f
++    iget-boolean v3, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->isNotValidNetwork:Z
++
++    if-eqz v3, :cond_10
++
++    const-string v3, "onBindViewHolder() - Selected  BleAp  isNotValidNetwork : "
++
++    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
++
++    const v4, 0x7f142ebe
++
++    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    goto :goto_4
++
+     :cond_10
+-    iget v3, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mBattery:I
+-
+-    const/16 v4, 0xf
+-
+-    const-string v5, " "
+-
+-    const v7, 0x7f140a1e
+-
+-    if-gt v3, v4, :cond_11
+-
+-    new-instance v3, Ljava/lang/StringBuilder;
+-
+-    const-string v4, "onBindViewHolder() - Selected  BleAp  has low battery: "
+-
+-    invoke-direct {v3, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+-
+-    iget v4, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mBattery:I
+-
+-    invoke-static {v3, v4, v1}, Landroidx/recyclerview/widget/ItemTouchHelper$3$$ExternalSyntheticOutline0;->m(Ljava/lang/StringBuilder;ILjava/lang/String;)V
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    const v4, 0x7f143521
+-
+-    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v3
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    iget-object v3, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mView:Landroid/view/View;
+-
+-    invoke-virtual {v3, v9}, Landroid/view/View;->setEnabled(Z)V
+-
+-    goto/16 :goto_4
++    const-string v3, "onBindViewHolder() - Available Hotspot live device"
++
++    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    goto :goto_4
+ 
+     :cond_11
+-    iget-boolean v3, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->isDataSaverEnabled:Z
+-
+-    if-eqz v3, :cond_12
+-
+-    const-string v3, "onBindViewHolder() - Selected  BleAp  DataSaver enabled: "
+-
+-    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    const v4, 0x7f1435f2
+-
+-    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v3
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    iget-object v3, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mView:Landroid/view/View;
+-
+-    invoke-virtual {v3, v9}, Landroid/view/View;->setEnabled(Z)V
+-
+-    goto/16 :goto_4
+-
+-    :cond_12
+-    if-eq v0, v8, :cond_17
+-
+-    if-ne v0, v6, :cond_13
+-
+-    goto :goto_3
+-
+-    :cond_13
+-    if-gez v0, :cond_14
+-
+-    const-string v3, "onBindViewHolder() - Selected  BleAp is in (Failed)/(Connection Timed out) state"
+-
+-    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    const v4, 0x7f142eb0
+-
+-    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v3
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    iget-object v3, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mView:Landroid/view/View;
+-
+-    invoke-virtual {v3, v9}, Landroid/view/View;->setEnabled(Z)V
+-
+-    goto :goto_4
+-
+-    :cond_14
+-    iget-boolean v3, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->isMobileDataLimitReached:Z
+-
+-    if-eqz v3, :cond_15
+-
+-    const-string v3, "onBindViewHolder() - Selected  BleAp  isMobileDataLimitReached : "
+-
+-    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    const v4, 0x7f14354e
+-
+-    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v3
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    iget-object v3, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mView:Landroid/view/View;
+-
+-    invoke-virtual {v3, v9}, Landroid/view/View;->setEnabled(Z)V
+-
+-    goto :goto_4
+-
+-    :cond_15
+-    iget-boolean v3, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->isNotValidNetwork:Z
+-
+-    if-eqz v3, :cond_16
+-
+-    const-string v3, "onBindViewHolder() - Selected  BleAp  isNotValidNetwork : "
+-
+-    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    invoke-static {v3, v7, v2, v5}, Lcom/android/settings/datetime/timezone/TimeZoneInfoPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILjava/lang/StringBuilder;Ljava/lang/String;)V
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+-
+-    const v4, 0x7f142ebe
+-
+-    invoke-virtual {v3, v4}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v3
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    goto :goto_4
+-
+-    :cond_16
+-    const-string v3, "onBindViewHolder() - Available Hotspot live device"
+-
+-    invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    goto :goto_4
+-
+-    :cond_17
+     :goto_3
+     const-string v3, "onBindViewHolder() - Selected  BleAp is in Connecting state"
+ 
+@@ -653,7 +555,7 @@
+     :goto_4
+     iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mWifiManager:Landroid/net/wifi/WifiManager;
+ 
+-    if-nez v3, :cond_18
++    if-nez v3, :cond_12
+ 
+     iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mContext:Landroid/content/Context;
+ 
+@@ -667,14 +569,14 @@
+ 
+     iput-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mWifiManager:Landroid/net/wifi/WifiManager;
+ 
+-    :cond_18
++    :cond_12
+     iget-object v3, p0, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter;->mWifiManager:Landroid/net/wifi/WifiManager;
+ 
+     invoke-virtual {v3}, Landroid/net/wifi/WifiManager;->getVerboseLoggingLevel()I
+ 
+     move-result v3
+ 
+-    if-ne v3, v8, :cond_19
++    if-ne v3, v8, :cond_13
+ 
+     new-instance v3, Ljava/lang/StringBuilder;
+ 
+@@ -724,7 +626,7 @@
+ 
+     invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+ 
+-    :cond_19
++    :cond_13
+     iget-object v3, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mSummary:Landroid/widget/TextView;
+ 
+     invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+@@ -739,7 +641,7 @@
+ 
+     move-result v2
+ 
+-    if-nez v2, :cond_1a
++    if-nez v2, :cond_14
+ 
+     const-string v2, "onBindViewHolder(): BleAp item is disabled"
+ 
+@@ -765,7 +667,7 @@
+ 
+     goto :goto_5
+ 
+-    :cond_1a
++    :cond_14
+     iget-object v1, p1, Lcom/samsung/android/settings/wifi/AutoHotspotListAdapter$AutoHotspotApViewHolder;->mView:Landroid/view/View;
+ 
+     invoke-virtual {v1, v8}, Landroid/view/View;->setClickable(Z)V
+@@ -795,7 +697,7 @@
+ 
+     return-void
+ 
+-    :cond_1b
++    :cond_15
+     :goto_6
+     const-string p0, "onBindViewHolder() - invalid index "
+ 
+--- a/smali_classes3/com/samsung/android/settings/wifi/McfAutoHotspotListAdapter.smali
++++ b/smali_classes3/com/samsung/android/settings/wifi/McfAutoHotspotListAdapter.smali
+@@ -8,14 +8,6 @@
+ 
+ .field public static final STATE_SECURED:[I
+ 
+-.field public static final STATE_WIFI6E_NONE:[I
+-
+-.field public static final STATE_WIFI6E_SECURED:[I
+-
+-.field public static final STATE_WIFI6_NONE:[I
+-
+-.field public static final STATE_WIFI6_SECURED:[I
+-
+ 
+ # instance fields
+ .field public mContext:Landroid/content/Context;
+@@ -31,49 +23,21 @@
+ 
+ # direct methods
+ .method static constructor <clinit>()V
+-    .locals 3
++    .locals 1
+ 
+     const v0, 0x7f0405f9
+ 
+     filled-new-array {v0}, [I
+ 
+-    move-result-object v1
+-
+-    sput-object v1, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_SECURED:[I
+-
+-    const/4 v1, 0x0
+-
+-    new-array v1, v1, [I
+-
+-    sput-object v1, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_NONE:[I
+-
+-    const v1, 0x7f040603
+-
+-    filled-new-array {v1, v0}, [I
+-
+-    move-result-object v2
+-
+-    sput-object v2, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_WIFI6_SECURED:[I
+-
+-    filled-new-array {v1}, [I
+-
+-    move-result-object v1
+-
+-    sput-object v1, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_WIFI6_NONE:[I
+-
+-    const v1, 0x7f040604
+-
+-    filled-new-array {v1, v0}, [I
+-
+     move-result-object v0
+ 
+-    sput-object v0, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_WIFI6E_SECURED:[I
+-
+-    filled-new-array {v1}, [I
+-
+-    move-result-object v0
+-
+-    sput-object v0, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_WIFI6E_NONE:[I
++    sput-object v0, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_SECURED:[I
++
++    const/4 v0, 0x0
++
++    new-array v0, v0, [I
++
++    sput-object v0, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_NONE:[I
+ 
+     return-void
+ .end method
+@@ -106,7 +70,7 @@
+ .end method
+ 
+ .method public final onBindViewHolder(Landroidx/recyclerview/widget/RecyclerView$ViewHolder;I)V
+-    .locals 11
++    .locals 10
+ 
+     check-cast p1, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter$McfAutoHotspotViewHolder;
+ 
+@@ -116,7 +80,7 @@
+ 
+     invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+ 
+-    if-ltz p2, :cond_17
++    if-ltz p2, :cond_11
+ 
+     iget-object v0, p0, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->mMcfAccessPoints:Ljava/util/List;
+ 
+@@ -244,7 +208,7 @@
+     move v4, v8
+ 
+     :goto_0
+-    if-eqz v3, :cond_e
++    if-eqz v3, :cond_8
+ 
+     invoke-virtual {v3}, Landroid/graphics/drawable/StateListDrawable;->getCurrent()Landroid/graphics/drawable/Drawable;
+ 
+@@ -301,84 +265,22 @@
+     iput v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mNetworkType:I
+ 
+     :cond_6
+-    iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mNetworkType:I
+-
+-    sget v4, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->MHS_WIFI_6_NETWORK:I
+-
+-    sget-object v5, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_WIFI6_NONE:[I
+-
+-    sget-object v10, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_WIFI6_SECURED:[I
+-
+-    if-ne v2, v4, :cond_8
+-
+     iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mSecurity:I
+ 
+     if-ne v2, v9, :cond_7
+ 
+-    invoke-virtual {v3, v10}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
++    sget-object v2, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_SECURED:[I
++
++    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+ 
+     goto :goto_2
+ 
+     :cond_7
+-    invoke-virtual {v3, v5}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
++    sget-object v2, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_NONE:[I
++
++    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+ 
+     :cond_8
+-    sget v4, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->MHS_WIFI_6E_NETWORK:I
+-
+-    if-ne v2, v4, :cond_a
+-
+-    iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mSecurity:I
+-
+-    if-ne v2, v9, :cond_9
+-
+-    sget-object v2, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_WIFI6E_SECURED:[I
+-
+-    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_9
+-    sget-object v2, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_WIFI6E_NONE:[I
+-
+-    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_a
+-    if-ne v2, v4, :cond_c
+-
+-    iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mSecurity:I
+-
+-    if-ne v2, v9, :cond_b
+-
+-    invoke-virtual {v3, v10}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_b
+-    invoke-virtual {v3, v5}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_c
+-    iget v2, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mSecurity:I
+-
+-    if-ne v2, v9, :cond_d
+-
+-    sget-object v2, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_SECURED:[I
+-
+-    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_2
+-
+-    :cond_d
+-    sget-object v2, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->STATE_NONE:[I
+-
+-    invoke-virtual {v3, v2}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    :cond_e
+     :goto_2
+     sget v2, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter$McfAutoHotspotViewHolder;->$r8$clinit:I
+ 
+@@ -400,7 +302,7 @@
+ 
+     invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+ 
+-    if-ne v0, v7, :cond_f
++    if-ne v0, v7, :cond_9
+ 
+     const-string v3, "onBindViewHolder() - Selected  BleAp is in connected state. THIS SHOULD HAVE BE REMOVED"
+ 
+@@ -408,7 +310,7 @@
+ 
+     goto :goto_4
+ 
+-    :cond_f
++    :cond_9
+     iget v3, p2, Lcom/samsung/android/wifi/SemWifiApBleScanResult;->mBattery:I
+ 
+     const/16 v4, 0xf
+@@ -417,7 +319,7 @@
+ 
+     const v7, 0x7f140a1e
+ 
+-    if-gt v3, v4, :cond_10
++    if-gt v3, v4, :cond_a
+ 
+     new-instance v3, Ljava/lang/StringBuilder;
+ 
+@@ -449,15 +351,15 @@
+ 
+     goto :goto_4
+ 
+-    :cond_10
+-    if-eq v0, v9, :cond_13
+-
+-    if-ne v0, v6, :cond_11
++    :cond_a
++    if-eq v0, v9, :cond_d
++
++    if-ne v0, v6, :cond_b
+ 
+     goto :goto_3
+ 
+-    :cond_11
+-    if-gez v0, :cond_12
++    :cond_b
++    if-gez v0, :cond_c
+ 
+     const-string v3, "onBindViewHolder() - Selected  BleAp is in (Failed)/(Connection Timed out) state"
+ 
+@@ -483,14 +385,14 @@
+ 
+     goto :goto_4
+ 
+-    :cond_12
++    :cond_c
+     const-string v3, "onBindViewHolder() - Available Hotspot live device"
+ 
+     invoke-static {v1, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+ 
+     goto :goto_4
+ 
+-    :cond_13
++    :cond_d
+     :goto_3
+     const-string v3, "onBindViewHolder() - Selected  BleAp is in Connecting state"
+ 
+@@ -513,7 +415,7 @@
+     :goto_4
+     iget-object v3, p0, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->mWifiManager:Landroid/net/wifi/WifiManager;
+ 
+-    if-nez v3, :cond_14
++    if-nez v3, :cond_e
+ 
+     iget-object v3, p0, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->mContext:Landroid/content/Context;
+ 
+@@ -527,14 +429,14 @@
+ 
+     iput-object v3, p0, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->mWifiManager:Landroid/net/wifi/WifiManager;
+ 
+-    :cond_14
++    :cond_e
+     iget-object v3, p0, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter;->mWifiManager:Landroid/net/wifi/WifiManager;
+ 
+     invoke-virtual {v3}, Landroid/net/wifi/WifiManager;->getVerboseLoggingLevel()I
+ 
+     move-result v3
+ 
+-    if-lez v3, :cond_15
++    if-lez v3, :cond_f
+ 
+     new-instance v3, Ljava/lang/StringBuilder;
+ 
+@@ -584,7 +486,7 @@
+ 
+     invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+ 
+-    :cond_15
++    :cond_f
+     iget-object v3, p1, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter$McfAutoHotspotViewHolder;->mSummary:Landroid/widget/TextView;
+ 
+     invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+@@ -599,7 +501,7 @@
+ 
+     move-result v2
+ 
+-    if-nez v2, :cond_16
++    if-nez v2, :cond_10
+ 
+     const-string v2, "onBindViewHolder(): BleAp item is disabled"
+ 
+@@ -625,7 +527,7 @@
+ 
+     goto :goto_5
+ 
+-    :cond_16
++    :cond_10
+     iget-object v1, p1, Lcom/samsung/android/settings/wifi/McfAutoHotspotListAdapter$McfAutoHotspotViewHolder;->mView:Landroid/view/View;
+ 
+     invoke-virtual {v1, v9}, Landroid/view/View;->setClickable(Z)V
+@@ -655,7 +557,7 @@
+ 
+     return-void
+ 
+-    :cond_17
++    :cond_11
+     :goto_6
+     const-string p0, "onBindViewHolder() - invalid index "
+ 
+--- a/smali_classes3/com/samsung/android/settings/wifi/WifiEntriesFilter$$ExternalSyntheticLambda0.smali
++++ b/smali_classes3/com/samsung/android/settings/wifi/WifiEntriesFilter$$ExternalSyntheticLambda0.smali
+@@ -24,7 +24,7 @@
+ 
+ # virtual methods
+ .method public final invoke(Ljava/lang/Object;)Ljava/lang/Object;
+-    .locals 5
++    .locals 6
+ 
+     check-cast p1, Lcom/android/wifitrackerlib/WifiEntry;
+ 
+@@ -57,7 +57,7 @@
+ 
+     move-result v3
+ 
+-    if-nez v3, :cond_6
++    if-nez v3, :cond_7
+ 
+     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+ 
+@@ -69,7 +69,7 @@
+ 
+     move-result v0
+ 
+-    if-eqz v0, :cond_6
++    if-eqz v0, :cond_7
+ 
+     :goto_0
+     iget-object p0, p0, Lcom/samsung/android/settings/wifi/WifiEntriesFilter;->multiChoiceFilter:Lcom/samsung/android/settings/wifi/WifiMultiChoiceFilter;
+@@ -87,7 +87,7 @@
+     :goto_1
+     move p0, v1
+ 
+-    goto/16 :goto_4
++    goto/16 :goto_5
+ 
+     :cond_1
+     iget-object p0, p0, Lcom/samsung/android/settings/wifi/WifiMultiChoiceFilter;->filters:Ljava/util/ArrayList;
+@@ -103,7 +103,7 @@
+ 
+     move-result v0
+ 
+-    if-eqz v0, :cond_5
++    if-eqz v0, :cond_6
+ 
+     invoke-interface {p0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
+ 
+@@ -117,49 +117,47 @@
+ 
+     move-result v3
+ 
+-    iget-object v4, p1, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
++    const/4 v4, 0x4
++
++    iget-object v5, p1, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
+ 
+     packed-switch v3, :pswitch_data_0
+ 
++    :cond_3
+     :goto_2
+     move v0, v1
+ 
+-    goto :goto_3
++    goto :goto_4
+ 
+     :pswitch_0
+-    invoke-virtual {v4}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+-
+-    :cond_3
++    invoke-virtual {v5}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
++
++    :cond_4
++    :goto_3
++    :pswitch_1
+     move v0, v2
+ 
+-    goto :goto_3
+-
+-    :pswitch_1
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->semIsWifi6Network()Z
+-
+-    move-result v0
+-
+-    goto :goto_3
++    goto :goto_4
+ 
+     :pswitch_2
+     iget-object v0, p1, Lcom/android/wifitrackerlib/WifiEntry;->mWifiInfo:Landroid/net/wifi/WifiInfo;
+ 
+     const/4 v3, 0x5
+ 
+-    if-eqz v0, :cond_4
++    if-eqz v0, :cond_5
+ 
+     invoke-virtual {v0}, Landroid/net/wifi/WifiInfo;->getWifiStandard()I
+ 
+     move-result v0
+ 
+-    if-ne v0, v3, :cond_3
++    if-ne v0, v3, :cond_4
+ 
+     goto :goto_2
+ 
+-    :cond_4
+-    iget v0, v4, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->wifiStandard:I
+-
+-    if-lt v0, v3, :cond_3
++    :cond_5
++    iget v0, v5, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->wifiStandard:I
++
++    if-lt v0, v3, :cond_4
+ 
+     goto :goto_2
+ 
+@@ -168,30 +166,32 @@
+ 
+     move-result v0
+ 
+-    goto :goto_3
++    goto :goto_4
+ 
+     :pswitch_4
+     invoke-static {v0, p1}, Lcom/samsung/android/settings/wifi/WifiMultiChoiceFilter;->isBandMatching(Lcom/samsung/android/settings/wifi/WifiMultiChoiceFilter$MultiChoiceFilter;Lcom/android/wifitrackerlib/WifiEntry;)Z
+ 
+     move-result v0
+ 
+-    goto :goto_3
++    goto :goto_4
+ 
+     :pswitch_5
+     invoke-static {v0, p1}, Lcom/samsung/android/settings/wifi/WifiMultiChoiceFilter;->isBandMatching(Lcom/samsung/android/settings/wifi/WifiMultiChoiceFilter$MultiChoiceFilter;Lcom/android/wifitrackerlib/WifiEntry;)Z
+ 
+     move-result v0
+ 
+-    goto :goto_3
++    goto :goto_4
+ 
+     :pswitch_6
+     invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->getSecurity()I
+ 
+     move-result v0
+ 
+-    invoke-static {v0}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isSecured(I)Z
+-
+-    move-result v0
++    sget-object v3, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->mSubscriptionManager:Landroid/telephony/SubscriptionManager;
++
++    if-eqz v0, :cond_4
++
++    if-ne v0, v4, :cond_3
+ 
+     goto :goto_3
+ 
+@@ -200,31 +200,31 @@
+ 
+     move-result v0
+ 
+-    invoke-static {v0}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isSecured(I)Z
+-
+-    move-result v0
+-
+-    if-nez v0, :cond_3
++    sget-object v3, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->mSubscriptionManager:Landroid/telephony/SubscriptionManager;
++
++    if-eqz v0, :cond_3
++
++    if-ne v0, v4, :cond_4
+ 
+     goto :goto_2
+ 
+-    :goto_3
++    :goto_4
+     if-eqz v0, :cond_2
+ 
+     goto :goto_1
+ 
+-    :cond_5
++    :cond_6
+     move p0, v2
+ 
+-    :goto_4
+-    if-eqz p0, :cond_6
+-
+-    goto :goto_5
+-
+-    :cond_6
++    :goto_5
++    if-eqz p0, :cond_7
++
++    goto :goto_6
++
++    :cond_7
+     move v1, v2
+ 
+-    :goto_5
++    :goto_6
+     invoke-static {v1}, Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;
+ 
+     move-result-object p0
+--- a/smali_classes3/com/samsung/android/settings/wifi/WifiListAdapter.smali
++++ b/smali_classes3/com/samsung/android/settings/wifi/WifiListAdapter.smali
+@@ -14,14 +14,6 @@
+ 
+ .field public static final STATE_WIFI5_SECURED:[I
+ 
+-.field public static final STATE_WIFI6E_NONE:[I
+-
+-.field public static final STATE_WIFI6E_SECURED:[I
+-
+-.field public static final STATE_WIFI6_NONE:[I
+-
+-.field public static final STATE_WIFI6_SECURED:[I
+-
+ .field public static final mDefaultIconResId:I
+ 
+ 
+@@ -83,37 +75,9 @@
+ 
+     filled-new-array {v1, v0}, [I
+ 
+-    move-result-object v1
+-
+-    sput-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI5_SECURED:[I
+-
+-    const v1, 0x7f040603
+-
+-    filled-new-array {v1}, [I
+-
+-    move-result-object v2
+-
+-    sput-object v2, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI6_NONE:[I
+-
+-    filled-new-array {v1, v0}, [I
+-
+-    move-result-object v1
+-
+-    sput-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI6_SECURED:[I
+-
+-    const v1, 0x7f040604
+-
+-    filled-new-array {v1}, [I
+-
+-    move-result-object v2
+-
+-    sput-object v2, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI6E_NONE:[I
+-
+-    filled-new-array {v1, v0}, [I
+-
+     move-result-object v0
+ 
+-    sput-object v0, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI6E_SECURED:[I
++    sput-object v0, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI5_SECURED:[I
+ 
+     return-void
+ .end method
+@@ -341,7 +305,7 @@
+ .method public final updateIcon(Landroid/widget/ImageView;Landroid/graphics/drawable/StateListDrawable;Lcom/android/wifitrackerlib/WifiEntry;)V
+     .locals 9
+ 
+-    if-eqz p2, :cond_14
++    if-eqz p2, :cond_12
+ 
+     iget-object v0, p0, Lcom/samsung/android/settings/wifi/WifiListAdapter;->TAG:Ljava/lang/String;
+ 
+@@ -484,129 +448,81 @@
+     :cond_7
+     move p3, v2
+ 
+-    goto/16 :goto_8
++    goto :goto_8
+ 
+     :cond_8
+     iget-object v2, p3, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
+ 
+     invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+ 
+-    invoke-virtual {p3}, Lcom/android/wifitrackerlib/WifiEntry;->semIsWifi6ENetwork()Z
+-
+-    move-result v4
+-
+-    if-eqz v4, :cond_a
+-
++    iget-object v4, p3, Lcom/android/wifitrackerlib/WifiEntry;->mWifiInfo:Landroid/net/wifi/WifiInfo;
++
++    const/4 v5, 0x4
++
++    const/4 v6, 0x5
++
++    if-eqz v4, :cond_9
++
++    invoke-virtual {v4}, Landroid/net/wifi/WifiInfo;->getWifiStandard()I
++
++    move-result v2
++
++    if-ne v2, v6, :cond_c
++
++    goto :goto_3
++
++    :cond_9
++    iget v2, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->wifiStandard:I
++
++    if-lt v2, v6, :cond_c
++
++    :goto_3
+     invoke-virtual {p3}, Lcom/android/wifitrackerlib/WifiEntry;->getSecurity()I
+ 
+     move-result v1
+ 
+-    invoke-static {v1}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isSecured(I)Z
+-
+-    move-result v1
+-
+-    if-eqz v1, :cond_9
+-
+-    sget-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI6E_SECURED:[I
+-
+-    goto :goto_3
+-
+-    :cond_9
+-    sget-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI6E_NONE:[I
+-
+-    :goto_3
++    sget-object v2, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->mSubscriptionManager:Landroid/telephony/SubscriptionManager;
++
++    if-eqz v1, :cond_b
++
++    if-ne v1, v5, :cond_a
++
++    goto :goto_4
++
++    :cond_a
++    sget-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI5_SECURED:[I
++
++    goto :goto_5
++
++    :cond_b
++    :goto_4
++    sget-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI5_NONE:[I
++
++    :goto_5
+     invoke-virtual {p2, v1}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+ 
+     goto :goto_7
+ 
+-    :cond_a
+-    invoke-virtual {p3}, Lcom/android/wifitrackerlib/WifiEntry;->semIsWifi6Network()Z
+-
+-    move-result v4
+-
+-    if-eqz v4, :cond_c
+-
++    :cond_c
+     invoke-virtual {p3}, Lcom/android/wifitrackerlib/WifiEntry;->getSecurity()I
+ 
+-    move-result v1
+-
+-    invoke-static {v1}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isSecured(I)Z
+-
+-    move-result v1
+-
+-    if-eqz v1, :cond_b
+-
+-    sget-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI6_SECURED:[I
+-
+-    goto :goto_4
+-
+-    :cond_b
+-    sget-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI6_NONE:[I
+-
+-    :goto_4
+-    invoke-virtual {p2, v1}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+-    goto :goto_7
+-
+-    :cond_c
+-    iget-object v4, p3, Lcom/android/wifitrackerlib/WifiEntry;->mWifiInfo:Landroid/net/wifi/WifiInfo;
+-
+-    const/4 v5, 0x5
+-
+-    if-eqz v4, :cond_d
+-
+-    invoke-virtual {v4}, Landroid/net/wifi/WifiInfo;->getWifiStandard()I
+-
+     move-result v2
+ 
+-    if-ne v2, v5, :cond_f
+-
+-    goto :goto_5
++    sget-object v4, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->mSubscriptionManager:Landroid/telephony/SubscriptionManager;
++
++    if-eqz v2, :cond_e
++
++    if-ne v2, v5, :cond_d
++
++    goto :goto_6
+ 
+     :cond_d
+-    iget v2, v2, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->wifiStandard:I
+-
+-    if-lt v2, v5, :cond_f
+-
+-    :goto_5
+-    invoke-virtual {p3}, Lcom/android/wifitrackerlib/WifiEntry;->getSecurity()I
+-
+-    move-result v1
+-
+-    invoke-static {v1}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isSecured(I)Z
+-
+-    move-result v1
+-
+-    if-eqz v1, :cond_e
+-
+-    sget-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI5_SECURED:[I
+-
+-    goto :goto_6
++    move-object v1, v3
+ 
+     :cond_e
+-    sget-object v1, Lcom/samsung/android/settings/wifi/WifiListAdapter;->STATE_WIFI5_NONE:[I
+-
+     :goto_6
+     invoke-virtual {p2, v1}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+ 
+-    goto :goto_7
+-
+-    :cond_f
+-    invoke-virtual {p3}, Lcom/android/wifitrackerlib/WifiEntry;->getSecurity()I
+-
+-    move-result v2
+-
+-    invoke-static {v2}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isSecured(I)Z
+-
+-    move-result v2
+-
+-    if-eqz v2, :cond_10
+-
+-    move-object v1, v3
+-
+-    :cond_10
+-    invoke-virtual {p2, v1}, Landroid/graphics/drawable/StateListDrawable;->setState([I)Z
+-
+     :goto_7
+     invoke-virtual {p3}, Lcom/android/wifitrackerlib/WifiEntry;->getLevel()I
+ 
+@@ -617,51 +533,51 @@
+ 
+     move-result-object p2
+ 
+-    if-eqz p2, :cond_12
++    if-eqz p2, :cond_10
+ 
+     invoke-virtual {p1, p2}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
+ 
+-    if-ltz p3, :cond_11
++    if-ltz p3, :cond_f
+ 
+     invoke-virtual {p2, p3}, Landroid/graphics/drawable/Drawable;->setLevel(I)Z
+ 
+     return-void
+ 
++    :cond_f
++    const-string p0, "Failed to get correct level"
++
++    invoke-static {v0, p0}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
++
++    const/4 p0, 0x3
++
++    invoke-virtual {p2, p0}, Landroid/graphics/drawable/Drawable;->setLevel(I)Z
++
++    return-void
++
++    :cond_10
++    sget p2, Lcom/samsung/android/settings/wifi/WifiListAdapter;->mDefaultIconResId:I
++
++    if-eqz p2, :cond_11
++
++    iget-object p0, p0, Lcom/samsung/android/settings/wifi/WifiListAdapter;->mContext:Landroid/content/Context;
++
++    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
++
++    move-result-object p0
++
++    invoke-virtual {p0, p2}, Landroid/content/res/Resources;->getDrawable(I)Landroid/graphics/drawable/Drawable;
++
++    move-result-object p0
++
++    invoke-virtual {p1, p0}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
++
++    return-void
++
+     :cond_11
+-    const-string p0, "Failed to get correct level"
+-
+-    invoke-static {v0, p0}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    const/4 p0, 0x3
+-
+-    invoke-virtual {p2, p0}, Landroid/graphics/drawable/Drawable;->setLevel(I)Z
+-
+-    return-void
++    const/4 p0, 0x0
++
++    invoke-virtual {p1, p0}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
+ 
+     :cond_12
+-    sget p2, Lcom/samsung/android/settings/wifi/WifiListAdapter;->mDefaultIconResId:I
+-
+-    if-eqz p2, :cond_13
+-
+-    iget-object p0, p0, Lcom/samsung/android/settings/wifi/WifiListAdapter;->mContext:Landroid/content/Context;
+-
+-    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+-
+-    move-result-object p0
+-
+-    invoke-virtual {p0, p2}, Landroid/content/res/Resources;->getDrawable(I)Landroid/graphics/drawable/Drawable;
+-
+-    move-result-object p0
+-
+-    invoke-virtual {p1, p0}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
+-
+-    return-void
+-
+-    :cond_13
+-    const/4 p0, 0x0
+-
+-    invoke-virtual {p1, p0}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
+-
+-    :cond_14
+-    return-void
+-.end method
++    return-void
++.end method
+--- a/smali_classes3/com/samsung/android/settings/wifi/WifiSettings.smali
++++ b/smali_classes3/com/samsung/android/settings/wifi/WifiSettings.smali
+@@ -6913,11 +6913,11 @@
+ .end method
+ 
+ .method public final onWifiEntryPreferenceClick(Lcom/android/wifitrackerlib/WifiEntry;)V
+-    .locals 10
++    .locals 7
+ 
+     if-nez p1, :cond_0
+ 
+-    goto/16 :goto_9
++    goto/16 :goto_5
+ 
+     :cond_0
+     new-instance v0, Ljava/lang/StringBuilder;
+@@ -7056,17 +7056,17 @@
+ 
+     const/4 v3, 0x1
+ 
++    const/4 v5, 0x4
++
++    iget-object v6, p1, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
++
++    if-eq v0, v5, :cond_b
++
++    const/4 v5, 0x5
++
++    if-eq v0, v5, :cond_8
++
+     const/4 v5, 0x6
+-
+-    const/4 v6, 0x5
+-
+-    const/4 v7, 0x4
+-
+-    iget-object v8, p1, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
+-
+-    if-eq v0, v7, :cond_b
+-
+-    if-eq v0, v6, :cond_8
+ 
+     if-eq v0, v5, :cond_6
+ 
+@@ -7075,9 +7075,9 @@
+     :cond_6
+     iget-object v0, p1, Lcom/android/wifitrackerlib/WifiEntry;->mWifiManager:Landroid/net/wifi/WifiManager;
+ 
+-    sget v9, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isWpa3SuiteBSupported:I
+-
+-    if-ne v9, v2, :cond_7
++    sget v5, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isWpa3SuiteBSupported:I
++
++    if-ne v5, v2, :cond_7
+ 
+     invoke-virtual {v0}, Landroid/net/wifi/WifiManager;->isWifiEnabled()Z
+ 
+@@ -7110,15 +7110,15 @@
+     goto :goto_3
+ 
+     :cond_9
+-    iget-boolean v0, v8, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isH2EOnlyNetwork:Z
++    iget-boolean v0, v6, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isH2EOnlyNetwork:Z
+ 
+     if-eqz v0, :cond_d
+ 
+     iget-object v0, p1, Lcom/android/wifitrackerlib/WifiEntry;->mWifiManager:Landroid/net/wifi/WifiManager;
+ 
+-    sget v9, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isWpa3SaeH2eSupported:I
+-
+-    if-ne v9, v2, :cond_a
++    sget v5, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isWpa3SaeH2eSupported:I
++
++    if-ne v5, v2, :cond_a
+ 
+     invoke-virtual {v0}, Landroid/net/wifi/WifiManager;->isWifiEnabled()Z
+ 
+@@ -7166,264 +7166,167 @@
+ 
+     :cond_d
+     :goto_4
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->semIsWifi6ENetwork()Z
++    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->getWifiConfiguration()Landroid/net/wifi/WifiConfiguration;
++
++    move-result-object v0
++
++    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->isSaved()Z
++
++    move-result v2
++
++    if-eqz v2, :cond_13
++
++    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->getConnectedInfo()Lcom/android/wifitrackerlib/WifiEntry$ConnectedInfo;
++
++    move-result-object v2
++
++    if-eqz v2, :cond_e
++
++    :goto_5
++    return-void
++
++    :cond_e
++    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->semIsEphemeral()Z
++
++    move-result v2
++
++    if-nez v2, :cond_f
++
++    iget-object v2, v0, Landroid/net/wifi/WifiConfiguration;->BSSID:Ljava/lang/String;
++
++    if-eqz v2, :cond_f
++
++    new-instance v2, Ljava/lang/StringBuilder;
++
++    const-string v3, "clear bssid info "
++
++    invoke-direct {v2, v3}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
++
++    invoke-virtual {v0}, Landroid/net/wifi/WifiConfiguration;->getKey()Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    const-string v3, "-"
++
++    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    iget-object v3, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mLog:Lcom/samsung/android/wifitrackerlib/LogUtils;
++
++    iget-object v4, v0, Landroid/net/wifi/WifiConfiguration;->BSSID:Ljava/lang/String;
++
++    invoke-virtual {v3, v4}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
++
++    move-result-object v3
++
++    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object v2
++
++    invoke-static {v1, v2}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
++
++    const-string v1, "any"
++
++    iput-object v1, v0, Landroid/net/wifi/WifiConfiguration;->BSSID:Ljava/lang/String;
++
++    iget-object v1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mWifiManager:Landroid/net/wifi/WifiManager;
++
++    invoke-virtual {v1, v0}, Landroid/net/wifi/WifiManager;->updateNetwork(Landroid/net/wifi/WifiConfiguration;)I
++
++    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
++
++    goto :goto_6
++
++    :cond_f
++    iget-boolean v1, v6, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isOpenRoamingNetwork:Z
++
++    if-eqz v1, :cond_12
++
++    iget-object v1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mOpenRoamingSettings:Lcom/samsung/android/settings/wifi/advanced/OpenRoamingSettings;
++
++    invoke-virtual {v1}, Lcom/samsung/android/settings/wifi/advanced/OpenRoamingSettings;->isUserAllowedOAuthAgreement()Z
++
++    move-result v1
++
++    if-eqz v1, :cond_11
++
++    iget-object v1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mContext:Landroid/content/Context;
++
++    invoke-static {v1}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isValidOpenRoamingToken(Landroid/content/Context;)Z
++
++    move-result v1
++
++    if-eqz v1, :cond_10
++
++    iget-object v1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mWifiManager:Landroid/net/wifi/WifiManager;
++
++    iget v0, v0, Landroid/net/wifi/WifiConfiguration;->networkId:I
++
++    invoke-virtual {v1, v0, v4}, Landroid/net/wifi/WifiManager;->enableNetwork(IZ)Z
++
++    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
++
++    goto :goto_6
++
++    :cond_10
++    iget-object p1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mContext:Landroid/content/Context;
++
++    const v0, 0x7f14385c
++
++    invoke-static {p1, v0, p1, v3}, Lcom/android/settings/development/WebViewDevUiPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILandroid/content/Context;I)V
++
++    goto :goto_6
++
++    :cond_11
++    invoke-virtual {p0}, Lcom/samsung/android/settings/wifi/WifiSettings;->launchOpenRoamingFragment()V
++
++    goto :goto_6
++
++    :cond_12
++    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
++
++    goto :goto_6
++
++    :cond_13
++    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->isSubscription()Z
+ 
+     move-result v0
+ 
+-    if-eqz v0, :cond_12
+-
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->semGetHighestSecurity()I
+-
+-    move-result v0
+-
+-    if-eq v0, v6, :cond_f
+-
+-    if-eq v0, v7, :cond_f
+-
+-    const/4 v2, 0x3
+-
+-    if-eq v0, v2, :cond_f
+-
+-    const/4 v2, 0x7
+-
+-    if-eq v0, v2, :cond_f
+-
+-    if-ne v0, v5, :cond_e
+-
+-    goto :goto_5
+-
+-    :cond_e
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->semIs6GHzOnly()Z
+-
+-    move-result v0
++    if-eqz v0, :cond_14
++
++    iget-object v0, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mLoggingScreenId:Ljava/lang/String;
++
++    const-string v1, "0152"
++
++    invoke-static {v0, v1}, Lcom/samsung/android/settings/logging/SALogging;->insertSALog(Ljava/lang/String;Ljava/lang/String;)V
++
++    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
+ 
+     goto :goto_6
+ 
+-    :cond_f
+-    :goto_5
+-    move v0, v4
++    :cond_14
++    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
++
++    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->getWifiConfiguration()Landroid/net/wifi/WifiConfiguration;
++
++    move-result-object p1
++
++    iget-object v0, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mContext:Landroid/content/Context;
++
++    invoke-virtual {v0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
++
++    move-result-object v0
++
++    invoke-static {v0}, Lcom/samsung/android/settings/scloud/SCloudWifiDataManager;->getInstance(Landroid/content/Context;)Lcom/samsung/android/settings/scloud/SCloudWifiDataManager;
++
++    move-result-object v0
++
++    invoke-virtual {v0, p1}, Lcom/samsung/android/settings/scloud/SCloudWifiDataManager;->syncToAddOrUpdated(Landroid/net/wifi/WifiConfiguration;)V
+ 
+     :goto_6
+-    if-eqz v0, :cond_12
+-
+-    iget-object v0, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mContext:Landroid/content/Context;
+-
+-    invoke-virtual {v0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+-
+-    move-result-object v0
+-
+-    const-string v2, "safe_wifi"
+-
+-    invoke-static {v0, v2, v4}, Landroid/provider/Settings$Global;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I
+-
+-    move-result v0
+-
+-    if-eq v0, v3, :cond_11
+-
+-    iget-object v0, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mContext:Landroid/content/Context;
+-
+-    invoke-virtual {v0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+-
+-    move-result-object v0
+-
+-    const-string/jumbo v2, "wifi_new_rf_test_mode"
+-
+-    invoke-static {v0, v2, v4}, Landroid/provider/Settings$Secure;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_10
+-
+-    goto :goto_7
+-
+-    :cond_10
+-    move v0, v4
+-
+-    goto :goto_8
+-
+-    :cond_11
+-    :goto_7
+-    move v0, v3
+-
+-    :goto_8
+-    if-nez v0, :cond_12
+-
+-    invoke-virtual {p0}, Landroidx/fragment/app/Fragment;->getActivity()Landroidx/fragment/app/FragmentActivity;
+-
+-    move-result-object p0
+-
+-    const p1, 0x7f1437f2
+-
+-    invoke-static {p0, p1, v3}, Landroid/widget/Toast;->makeText(Landroid/content/Context;II)Landroid/widget/Toast;
+-
+-    move-result-object p0
+-
+-    invoke-virtual {p0}, Landroid/widget/Toast;->show()V
+-
+-    return-void
+-
+-    :cond_12
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->getWifiConfiguration()Landroid/net/wifi/WifiConfiguration;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->isSaved()Z
+-
+-    move-result v2
+-
+-    if-eqz v2, :cond_18
+-
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->getConnectedInfo()Lcom/android/wifitrackerlib/WifiEntry$ConnectedInfo;
+-
+-    move-result-object v2
+-
+-    if-eqz v2, :cond_13
+-
+-    :goto_9
+-    return-void
+-
+-    :cond_13
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->semIsEphemeral()Z
+-
+-    move-result v2
+-
+-    if-nez v2, :cond_14
+-
+-    iget-object v2, v0, Landroid/net/wifi/WifiConfiguration;->BSSID:Ljava/lang/String;
+-
+-    if-eqz v2, :cond_14
+-
+-    new-instance v2, Ljava/lang/StringBuilder;
+-
+-    const-string v3, "clear bssid info "
+-
+-    invoke-direct {v2, v3}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+-
+-    invoke-virtual {v0}, Landroid/net/wifi/WifiConfiguration;->getKey()Ljava/lang/String;
+-
+-    move-result-object v3
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    const-string v3, "-"
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    iget-object v3, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mLog:Lcom/samsung/android/wifitrackerlib/LogUtils;
+-
+-    iget-object v4, v0, Landroid/net/wifi/WifiConfiguration;->BSSID:Ljava/lang/String;
+-
+-    invoke-virtual {v3, v4}, Lcom/samsung/android/wifitrackerlib/LogUtils;->getPrintableLog(Ljava/lang/String;)Ljava/lang/String;
+-
+-    move-result-object v3
+-
+-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-static {v1, v2}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    const-string v1, "any"
+-
+-    iput-object v1, v0, Landroid/net/wifi/WifiConfiguration;->BSSID:Ljava/lang/String;
+-
+-    iget-object v1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mWifiManager:Landroid/net/wifi/WifiManager;
+-
+-    invoke-virtual {v1, v0}, Landroid/net/wifi/WifiManager;->updateNetwork(Landroid/net/wifi/WifiConfiguration;)I
+-
+-    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
+-
+-    goto :goto_a
+-
+-    :cond_14
+-    iget-boolean v1, v8, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isOpenRoamingNetwork:Z
+-
+-    if-eqz v1, :cond_17
+-
+-    iget-object v1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mOpenRoamingSettings:Lcom/samsung/android/settings/wifi/advanced/OpenRoamingSettings;
+-
+-    invoke-virtual {v1}, Lcom/samsung/android/settings/wifi/advanced/OpenRoamingSettings;->isUserAllowedOAuthAgreement()Z
+-
+-    move-result v1
+-
+-    if-eqz v1, :cond_16
+-
+-    iget-object v1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mContext:Landroid/content/Context;
+-
+-    invoke-static {v1}, Lcom/samsung/android/wifitrackerlib/SemWifiUtils;->isValidOpenRoamingToken(Landroid/content/Context;)Z
+-
+-    move-result v1
+-
+-    if-eqz v1, :cond_15
+-
+-    iget-object v1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mWifiManager:Landroid/net/wifi/WifiManager;
+-
+-    iget v0, v0, Landroid/net/wifi/WifiConfiguration;->networkId:I
+-
+-    invoke-virtual {v1, v0, v4}, Landroid/net/wifi/WifiManager;->enableNetwork(IZ)Z
+-
+-    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
+-
+-    goto :goto_a
+-
+-    :cond_15
+-    iget-object p1, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mContext:Landroid/content/Context;
+-
+-    const v0, 0x7f14385c
+-
+-    invoke-static {p1, v0, p1, v3}, Lcom/android/settings/development/WebViewDevUiPreferenceController$$ExternalSyntheticOutline0;->m(Landroid/content/Context;ILandroid/content/Context;I)V
+-
+-    goto :goto_a
+-
+-    :cond_16
+-    invoke-virtual {p0}, Lcom/samsung/android/settings/wifi/WifiSettings;->launchOpenRoamingFragment()V
+-
+-    goto :goto_a
+-
+-    :cond_17
+-    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
+-
+-    goto :goto_a
+-
+-    :cond_18
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->isSubscription()Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_19
+-
+-    iget-object v0, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mLoggingScreenId:Ljava/lang/String;
+-
+-    const-string v1, "0152"
+-
+-    invoke-static {v0, v1}, Lcom/samsung/android/settings/logging/SALogging;->insertSALog(Ljava/lang/String;Ljava/lang/String;)V
+-
+-    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
+-
+-    goto :goto_a
+-
+-    :cond_19
+-    invoke-virtual {p0, p1}, Lcom/samsung/android/settings/wifi/WifiSettings;->connect(Lcom/android/wifitrackerlib/WifiEntry;)V
+-
+-    invoke-virtual {p1}, Lcom/android/wifitrackerlib/WifiEntry;->getWifiConfiguration()Landroid/net/wifi/WifiConfiguration;
+-
+-    move-result-object p1
+-
+-    iget-object v0, p0, Lcom/samsung/android/settings/wifi/WifiSettings;->mContext:Landroid/content/Context;
+-
+-    invoke-virtual {v0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
+-
+-    move-result-object v0
+-
+-    invoke-static {v0}, Lcom/samsung/android/settings/scloud/SCloudWifiDataManager;->getInstance(Landroid/content/Context;)Lcom/samsung/android/settings/scloud/SCloudWifiDataManager;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {v0, p1}, Lcom/samsung/android/settings/scloud/SCloudWifiDataManager;->syncToAddOrUpdated(Landroid/net/wifi/WifiConfiguration;)V
+-
+-    :goto_a
+     invoke-static {}, Landroid/os/SystemClock;->currentThreadTimeMillis()J
+ 
+     move-result-wide v0
+--- a/smali_classes3/com/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController.smali
++++ b/smali_classes3/com/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController.smali
+@@ -473,7 +473,7 @@
+ .end method
+ 
+ .method public setChecked(Z)Z
+-    .locals 5
++    .locals 11
+ 
+     iget-object v0, p0, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->mSAScreenId:Ljava/lang/String;
+ 
+@@ -499,11 +499,137 @@
+ 
+     iget-object v1, p0, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->mWifiEntry:Lcom/android/wifitrackerlib/WifiEntry;
+ 
+-    invoke-virtual {v1}, Lcom/android/wifitrackerlib/WifiEntry;->semGetHighestSecurity()I
++    invoke-virtual {v1}, Lcom/android/wifitrackerlib/WifiEntry;->getSecurityTypes()Ljava/util/List;
++
++    move-result-object v1
++
++    sget-object v2, Lcom/android/wifitrackerlib/Utils;->defaultSsidList:Ljava/util/List;
++
++    invoke-interface {v1}, Ljava/util/List;->size()I
++
++    move-result v2
++
++    const/4 v3, -0x1
++
++    const/4 v5, 0x0
++
++    const/4 v6, 0x1
++
++    const/4 v7, 0x2
++
++    const/4 v8, 0x4
++
++    const/4 v9, 0x6
++
++    if-ne v2, v6, :cond_1
++
++    invoke-interface {v1, v5}, Ljava/util/List;->get(I)Ljava/lang/Object;
++
++    move-result-object v1
++
++    check-cast v1, Ljava/lang/Integer;
++
++    invoke-virtual {v1}, Ljava/lang/Integer;->intValue()I
+ 
+     move-result v1
+ 
+-    invoke-static {v1}, Ljava/lang/String;->valueOf(I)Ljava/lang/String;
++    goto :goto_1
++
++    :cond_1
++    invoke-interface {v1}, Ljava/util/List;->size()I
++
++    move-result v2
++
++    if-ne v2, v7, :cond_4
++
++    invoke-static {v9}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++
++    move-result-object v2
++
++    invoke-interface {v1, v2}, Ljava/util/List;->contains(Ljava/lang/Object;)Z
++
++    move-result v2
++
++    if-eqz v2, :cond_2
++
++    move v1, v9
++
++    goto :goto_1
++
++    :cond_2
++    invoke-static {v8}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++
++    move-result-object v2
++
++    invoke-interface {v1, v2}, Ljava/util/List;->contains(Ljava/lang/Object;)Z
++
++    move-result v2
++
++    if-eqz v2, :cond_3
++
++    move v1, v8
++
++    goto :goto_1
++
++    :cond_3
++    const/16 v2, 0x9
++
++    invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++
++    move-result-object v10
++
++    invoke-interface {v1, v10}, Ljava/util/List;->contains(Ljava/lang/Object;)Z
++
++    move-result v1
++
++    if-eqz v1, :cond_4
++
++    move v1, v2
++
++    goto :goto_1
++
++    :cond_4
++    move v1, v3
++
++    :goto_1
++    packed-switch v1, :pswitch_data_0
++
++    :pswitch_0
++    move v8, v5
++
++    goto :goto_2
++
++    :pswitch_1
++    const/4 v8, 0x7
++
++    goto :goto_2
++
++    :pswitch_2
++    move v8, v9
++
++    goto :goto_2
++
++    :pswitch_3
++    const/4 v8, 0x5
++
++    goto :goto_2
++
++    :pswitch_4
++    const/4 v8, 0x3
++
++    goto :goto_2
++
++    :pswitch_5
++    move v8, v7
++
++    goto :goto_2
++
++    :pswitch_6
++    move v8, v6
++
++    :goto_2
++    :pswitch_7
++    invoke-static {v8}, Ljava/lang/String;->valueOf(I)Ljava/lang/String;
+ 
+     move-result-object v1
+ 
+@@ -527,9 +653,7 @@
+ 
+     iget-object v1, p0, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->mSAScreenId:Ljava/lang/String;
+ 
+-    const/4 v2, 0x0
+-
+-    invoke-static {v1, v4, v0, v2}, Lcom/samsung/android/settings/logging/SALogging;->insertSALog(Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;I)V
++    invoke-static {v1, v4, v0, v5}, Lcom/samsung/android/settings/logging/SALogging;->insertSALog(Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;I)V
+ 
+     iget-object v0, p0, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->mWifiEntry:Lcom/android/wifitrackerlib/WifiEntry;
+ 
+@@ -537,7 +661,7 @@
+ 
+     move-result-object v0
+ 
+-    if-eqz v0, :cond_1
++    if-eqz v0, :cond_5
+ 
+     iget-object v1, p0, Lcom/android/settingslib/core/AbstractPreferenceController;->mContext:Landroid/content/Context;
+ 
+@@ -551,34 +675,32 @@
+ 
+     invoke-virtual {v1, v0}, Lcom/samsung/android/settings/scloud/SCloudWifiDataManager;->syncToAddOrUpdated(Landroid/net/wifi/WifiConfiguration;)V
+ 
+-    :cond_1
++    :cond_5
+     iget-object v1, p0, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->mWifiEntry:Lcom/android/wifitrackerlib/WifiEntry;
+ 
+     iget-object v1, v1, Lcom/android/wifitrackerlib/WifiEntry;->mSemFlags:Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;
+ 
+     iget-boolean v1, v1, Lcom/samsung/android/wifitrackerlib/SemWifiEntryFlags;->isCarrierNetwork:Z
+ 
+-    if-eqz v1, :cond_2
++    if-eqz v1, :cond_6
+ 
+     invoke-direct {p0, p1, v0}, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->syncAutoReconnectAndCarrierNetworkOffload(ZLandroid/net/wifi/WifiConfiguration;)V
+ 
+-    goto :goto_1
+-
+-    :cond_2
++    goto :goto_3
++
++    :cond_6
+     invoke-direct {p0, p1}, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->updateAllowAutojoin(Z)V
+ 
+-    :goto_1
++    :goto_3
+     iget-object v0, p0, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->mWifiEntry:Lcom/android/wifitrackerlib/WifiEntry;
+ 
+     invoke-virtual {v0}, Lcom/android/wifitrackerlib/WifiEntry;->getConnectedState()I
+ 
+     move-result v0
+ 
+-    const/4 v1, 0x2
+-
+-    if-ne v0, v1, :cond_3
+-
+-    if-nez p1, :cond_3
++    if-ne v0, v7, :cond_7
++
++    if-nez p1, :cond_7
+ 
+     iget-object v0, p0, Lcom/android/settingslib/core/AbstractPreferenceController;->mContext:Landroid/content/Context;
+ 
+@@ -592,22 +714,20 @@
+ 
+     invoke-virtual {v0}, Landroid/content/Context;->getUserId()I
+ 
+-    move-result v3
+-
+-    invoke-virtual {v2, v3}, Landroid/content/pm/PackageManager;->getNameForUid(I)Ljava/lang/String;
++    move-result v4
++
++    invoke-virtual {v2, v4}, Landroid/content/pm/PackageManager;->getNameForUid(I)Ljava/lang/String;
+ 
+     move-result-object v2
+ 
+-    const-string/jumbo v3, "sem_wifi"
+-
+-    invoke-virtual {v0, v3}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
++    const-string/jumbo v4, "sem_wifi"
++
++    invoke-virtual {v0, v4}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+ 
+     move-result-object v0
+ 
+     check-cast v0, Lcom/samsung/android/wifi/SemWifiManager;
+ 
+-    const/4 v3, -0x1
+-
+     const-string v4, "disconnect"
+ 
+     invoke-static {v3, v4, v2, v1}, Lcom/samsung/android/wifitrackerlib/WifiIssueDetectorUtil$ReportUtil;->getReportDataForWifiManagerApi(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)Landroid/os/Bundle;
+@@ -624,12 +744,28 @@
+ 
+     invoke-direct {p0}, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->exitActivity()V
+ 
+-    :cond_3
++    :cond_7
+     iput-boolean p1, p0, Lcom/samsung/android/settings/wifi/details/WifiAutoConnectPreferenceController;->mAutoJoinStore:Z
+ 
+-    const/4 p0, 0x1
+-
+-    return p0
++    return v6
++
++    nop
++
++    :pswitch_data_0
++    .packed-switch 0x1
++        :pswitch_6
++        :pswitch_5
++        :pswitch_4
++        :pswitch_3
++        :pswitch_2
++        :pswitch_7
++        :pswitch_0
++        :pswitch_0
++        :pswitch_1
++        :pswitch_0
++        :pswitch_4
++        :pswitch_4
++    .end packed-switch
+ .end method
+ 
+ .method public updateState(Landroidx/preference/Preference;)V
+--- a/smali_classes3/com/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference.smali
++++ b/smali_classes3/com/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference.smali
+@@ -72,6 +72,10 @@
+ 
+ .field public final mWeeklyDate:Ljava/util/List;
+ 
++.field public mWifi5BandLayout:Landroid/widget/RelativeLayout;
++
++.field public mWifi5StandardLayout:Landroid/widget/RelativeLayout;
++
+ .field public mWifi6BandLayout:Landroid/widget/RelativeLayout;
+ 
+ .field public mWifi6StandardLayout:Landroid/widget/RelativeLayout;
+@@ -803,9 +807,9 @@
+ 
+     move-result-object p2
+ 
+-    aget-wide v6, v5, v3
+-
+-    invoke-static {p2, v6, v7}, Landroid/text/format/Formatter;->formatShortFileSize(Landroid/content/Context;J)Ljava/lang/String;
++    aget-wide v3, v5, v3
++
++    invoke-static {p2, v3, v4}, Landroid/text/format/Formatter;->formatShortFileSize(Landroid/content/Context;J)Ljava/lang/String;
+ 
+     move-result-object p2
+ 
+@@ -817,9 +821,9 @@
+ 
+     move-result-object p2
+ 
+-    aget-wide v6, v5, v2
+-
+-    invoke-static {p2, v6, v7}, Landroid/text/format/Formatter;->formatShortFileSize(Landroid/content/Context;J)Ljava/lang/String;
++    aget-wide v2, v5, v2
++
++    invoke-static {p2, v2, v3}, Landroid/text/format/Formatter;->formatShortFileSize(Landroid/content/Context;J)Ljava/lang/String;
+ 
+     move-result-object p2
+ 
+@@ -848,67 +852,93 @@
+ 
+     const/16 p2, 0x18
+ 
+-    int-to-float p2, p2
+-
+-    iget-object p3, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mContext:Landroid/content/Context;
+-
+-    invoke-virtual {p3}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+-
+-    move-result-object p3
+-
+-    invoke-virtual {p3}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+-
+-    move-result-object p3
+-
+-    invoke-static {v3, p2, p3}, Landroid/util/TypedValue;->applyDimension(IFLandroid/util/DisplayMetrics;)F
++    invoke-virtual {p0, p2}, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->getDPfromPixel(I)I
++
++    move-result p3
++
++    iput p3, p1, Landroid/widget/LinearLayout$LayoutParams;->bottomMargin:I
++
++    iget-object p3, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi6BandLayout:Landroid/widget/RelativeLayout;
++
++    invoke-virtual {p3, p1}, Landroid/widget/RelativeLayout;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
++
++    iget-object p3, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifiMultiLinkBandLayout:Landroid/widget/RelativeLayout;
++
++    const/16 v0, 0x8
++
++    invoke-virtual {p3, v0}, Landroid/widget/RelativeLayout;->setVisibility(I)V
++
++    invoke-virtual {p0, p2}, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->getDPfromPixel(I)I
+ 
+     move-result p2
+ 
+-    float-to-int p2, p2
+-
+     iput p2, p1, Landroid/widget/LinearLayout$LayoutParams;->bottomMargin:I
+ 
++    iget-object p2, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi5BandLayout:Landroid/widget/RelativeLayout;
++
++    invoke-virtual {p2, p1}, Landroid/widget/RelativeLayout;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
++
+     iget-object p2, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi6BandLayout:Landroid/widget/RelativeLayout;
+ 
++    invoke-virtual {p2, v0}, Landroid/widget/RelativeLayout;->setVisibility(I)V
++
++    const/16 p2, 0x11
++
++    invoke-virtual {p0, p2}, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->getDPfromPixel(I)I
++
++    move-result p3
++
++    iput p3, p1, Landroid/widget/LinearLayout$LayoutParams;->bottomMargin:I
++
++    iget-object p3, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi5StandardLayout:Landroid/widget/RelativeLayout;
++
++    invoke-virtual {p3, p1}, Landroid/widget/RelativeLayout;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
++
++    iget-object p3, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi6StandardLayout:Landroid/widget/RelativeLayout;
++
++    invoke-virtual {p3, v0}, Landroid/widget/RelativeLayout;->setVisibility(I)V
++
++    invoke-virtual {p0, p2}, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->getDPfromPixel(I)I
++
++    move-result p2
++
++    iput p2, p1, Landroid/widget/LinearLayout$LayoutParams;->bottomMargin:I
++
++    iget-object p2, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi6StandardLayout:Landroid/widget/RelativeLayout;
++
+     invoke-virtual {p2, p1}, Landroid/widget/RelativeLayout;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
+ 
+-    iget-object p2, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifiMultiLinkBandLayout:Landroid/widget/RelativeLayout;
+-
+-    const/16 p3, 0x8
+-
+-    invoke-virtual {p2, p3}, Landroid/widget/RelativeLayout;->setVisibility(I)V
+-
+-    const/16 p2, 0x11
+-
+-    int-to-float p2, p2
+-
+-    iget-object v0, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mContext:Landroid/content/Context;
+-
+-    invoke-virtual {v0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {v0}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+-
+-    move-result-object v0
+-
+-    invoke-static {v3, p2, v0}, Landroid/util/TypedValue;->applyDimension(IFLandroid/util/DisplayMetrics;)F
+-
+-    move-result p2
+-
+-    float-to-int p2, p2
+-
+-    iput p2, p1, Landroid/widget/LinearLayout$LayoutParams;->bottomMargin:I
+-
+-    iget-object p2, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi6StandardLayout:Landroid/widget/RelativeLayout;
+-
+-    invoke-virtual {p2, p1}, Landroid/widget/RelativeLayout;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
+-
+     iget-object p0, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi7StandardLayout:Landroid/widget/RelativeLayout;
+ 
+-    invoke-virtual {p0, p3}, Landroid/widget/RelativeLayout;->setVisibility(I)V
++    invoke-virtual {p0, v0}, Landroid/widget/RelativeLayout;->setVisibility(I)V
+ 
+     return-void
++.end method
++
++.method public final getDPfromPixel(I)I
++    .locals 1
++
++    int-to-float p1, p1
++
++    iget-object p0, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mContext:Landroid/content/Context;
++
++    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
++
++    move-result-object p0
++
++    invoke-virtual {p0}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
++
++    move-result-object p0
++
++    const/4 v0, 0x1
++
++    invoke-static {v0, p1, p0}, Landroid/util/TypedValue;->applyDimension(IFLandroid/util/DisplayMetrics;)F
++
++    move-result p0
++
++    float-to-int p0, p0
++
++    return p0
+ .end method
+ 
+ .method public final getPointDrawable$1(I)Landroid/graphics/drawable/Drawable;
+@@ -1054,6 +1084,8 @@
+ 
+     check-cast v0, Landroid/widget/RelativeLayout;
+ 
++    iput-object v0, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi5BandLayout:Landroid/widget/RelativeLayout;
++
+     const v0, 0x7f0a08ea
+ 
+     invoke-virtual {p1, v0}, Landroidx/preference/PreferenceViewHolder;->findViewById(I)Landroid/view/View;
+@@ -1081,6 +1113,8 @@
+     move-result-object v0
+ 
+     check-cast v0, Landroid/widget/RelativeLayout;
++
++    iput-object v0, p0, Lcom/samsung/android/settings/wifi/develop/WifiLabsWeeklyReportPreference;->mWifi5StandardLayout:Landroid/widget/RelativeLayout;
+ 
+     const v0, 0x7f0a08eb
+ 
+--- a/smali_classes3/com/samsung/android/wifitrackerlib/SemWifiUtils.smali
++++ b/smali_classes3/com/samsung/android/wifitrackerlib/SemWifiUtils.smali
+@@ -475,29 +475,6 @@
+     return v1
+ .end method
+ 
+-.method public static isSecured(I)Z
+-    .locals 1
+-
+-    if-eqz p0, :cond_1
+-
+-    const/4 v0, 0x4
+-
+-    if-ne p0, v0, :cond_0
+-
+-    goto :goto_0
+-
+-    :cond_0
+-    const/4 p0, 0x1
+-
+-    return p0
+-
+-    :cond_1
+-    :goto_0
+-    const/4 p0, 0x0
+-
+-    return p0
+-.end method
+-
+ .method public static isSimCardReady(Landroid/telephony/TelephonyManager;)Z
+     .locals 5
+ 

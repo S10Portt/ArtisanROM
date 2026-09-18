@@ -2,6 +2,16 @@
 # Copyright (c) 2025 Salvo Giangreco
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+# S10 configuration must come from repository config files, not a previous shell.
+# Other targets retain their existing environment override behavior.
+if [[ "$1" == "beyond1lte" ]]; then
+    for CONFIG_INPUT_NAME in "${!SOURCE_@}" "${!TARGET_@}"; do
+        [[ -n "$CONFIG_INPUT_NAME" ]] || continue
+        unset "$CONFIG_INPUT_NAME" || exit 1
+    done
+    unset CONFIG_INPUT_NAME
+fi
+
 # [
 source "$SRC_DIR/scripts/utils/common_utils.sh" || exit 1
 
@@ -9,16 +19,35 @@ trap '[ $? -ne 0 ] && rm -f "$OUT_DIR/config.sh"' EXIT
 
 GET_BUILD_VAR()
 {
-    if [ "$2" ]; then
-        if [ ! "${!1}" ]; then
-            echo "${1}=\"${2}\""
-            return 0
-        fi
-    else
-        _CHECK_NON_EMPTY_PARAM "$1" "${!1}" || exit 1
+    local NAME="$1" VALUE="${!1}"
+    if [[ -z "$VALUE" ]]; then
+        VALUE="$2"
+        _CHECK_NON_EMPTY_PARAM "$NAME" "$VALUE" || exit 1
     fi
 
-    echo "${1}=\"${!1}\""
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        case "$NAME" in
+            TARGET_WLAN_MOBILEAP_5G_COUNTRY_POLICY)
+                case "$VALUE" in
+                    gzd7_driver_country|country_fallback|s10_311_legacy_report) ;;
+                    *) LOGE "Select an explicit S10 5GHz support-report policy"; exit 1 ;;
+                esac ;;
+            *_SUPPORT_*|TARGET_FIRMWARE_OFFLINE|TARGET_DISABLE_AVB_SIGNING|TARGET_INCLUDE_PATCHED_VBMETA|TARGET_KEEP_ORIGINAL_SIGN|TARGET_OS_BUILD_SYSTEM_EXT_PARTITION)
+                if [[ "$VALUE" != "true" && "$VALUE" != "false" ]]; then
+                    LOGE "$NAME must be exactly true or false"
+                    exit 1
+                fi ;;
+            *_PLATFORM_SDK_VERSION|*_PRODUCT_SHIPPING_API_LEVEL|TARGET_LEGACY_VNDK_VERSION|*_RIL_SIM_CONFIG_MULTISIM_TRAYCOUNT|*_WLAN_CONFIG_CONNECTION_PERSONALIZATION|*_WLAN_CONFIG_DYNAMIC_SWITCH|*_WLAN_CONFIG_CPU_CSTATE_DISABLE_THRESHOLD|*_WLAN_CONFIG_DATA_ACTIVITY_AFFINITY_BOOSTER_THRESHOLD|*_WLAN_CONFIG_L1SS_DISABLE_THRESHOLD)
+                if [[ ! "$VALUE" =~ ^(0|[1-9][0-9]*)$ ]]; then
+                    LOGE "$NAME must be a non-negative decimal integer"
+                    exit 1
+                fi ;;
+        esac
+        # Shell-safe scalar output; this does not establish hardware feature values.
+        printf '%s=%q\n' "$NAME" "$VALUE" || exit 1
+    else
+        echo "${NAME}=\"${VALUE}\""
+    fi
     return 0
 }
 
@@ -115,6 +144,11 @@ fi
 #
 #   [SOURCE/TARGET]_BOARD_API_LEVEL
 #     Integer containing the board API level, it must match the `ro.board.api_level` prop.
+#     beyond1lte emits "none": its board API has not been observed.
+#
+#   TARGET_LEGACY_VNDK_VERSION
+#     Explicit legacy vendor VNDK requirement (currently beyond1lte/31 only).
+#     It does not set or infer ro.board.api_level.
 #
 #   TARGET_ASSERT_MODEL
 #     If defined, the zip package will use the provided model numbers with the value in the `ro.boot.em.model` prop
@@ -447,6 +481,7 @@ fi
         echo "TARGET_ASSERT_MODEL=\"\""
     fi
     GET_BUILD_VAR "TARGET_FIRMWARE"
+    GET_BUILD_VAR "TARGET_FIRMWARE_OFFLINE" "false"
     if [ "${#TARGET_EXTRA_FIRMWARES[@]}" -ge 1 ]; then
         echo "TARGET_EXTRA_FIRMWARES=\"$(IFS=":"; printf '%s' "${TARGET_EXTRA_FIRMWARES[*]}")\""
     else
@@ -454,18 +489,60 @@ fi
     fi
     GET_BUILD_VAR "TARGET_PLATFORM_SDK_VERSION"
     GET_BUILD_VAR "TARGET_PRODUCT_SHIPPING_API_LEVEL"
-    GET_BUILD_VAR "TARGET_BOARD_API_LEVEL"
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        # Legacy vendor has no observed board API. Do not inherit one from the shell.
+        if [[ "$TARGET_LEGACY_VNDK_VERSION" != "31" ]]; then
+            LOGE "beyond1lte requires the verified legacy VNDK version 31"
+            exit 1
+        fi
+        echo 'TARGET_BOARD_API_LEVEL="none"'
+        GET_BUILD_VAR "TARGET_LEGACY_VNDK_VERSION"
+        case "$TARGET_KERNEL_INPUT_KIND" in source|artisan311) ;; *)
+            LOGE "TARGET_KERNEL_INPUT_KIND must be source or artisan311"
+            exit 1 ;;
+        esac
+        GET_BUILD_VAR "TARGET_KERNEL_INPUT_KIND"
+    else
+        GET_BUILD_VAR "TARGET_BOARD_API_LEVEL"
+    fi
     GET_BUILD_VAR "TARGET_DISABLE_AVB_SIGNING" "false"
     GET_BUILD_VAR "TARGET_INCLUDE_PATCHED_VBMETA" "false"
     GET_BUILD_VAR "TARGET_KEEP_ORIGINAL_SIGN" "false"
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        GET_BUILD_VAR "TARGET_LAYOUT_PROFILE"
+        S10_LAYOUT_VALUES="$(python3 "$SRC_DIR/scripts/utils/s10_layout.py" \
+            "$SRC_DIR" "$TARGET_LAYOUT_PROFILE")" || exit 1
+        while IFS=$'\t' read -r S10_SIZE_NAME S10_SIZE_VALUE; do
+            case "$S10_SIZE_NAME" in
+                TARGET_SYSTEM_PARTITION_SIZE|TARGET_VENDOR_PARTITION_SIZE|TARGET_PRODUCT_PARTITION_SIZE|TARGET_BOOT_PARTITION_SIZE|TARGET_DTB_PARTITION_SIZE|TARGET_DTBO_PARTITION_SIZE) ;;
+                *) LOGE "Unexpected S10 layout variable"; exit 1 ;;
+            esac
+            [[ "$S10_SIZE_VALUE" =~ ^[1-9][0-9]*$ ]] || exit 1
+            if [[ -n "${!S10_SIZE_NAME}" && "${!S10_SIZE_NAME}" != "$S10_SIZE_VALUE" ]]; then
+                LOGE "Conflicting explicit partition size: $S10_SIZE_NAME"
+                exit 1
+            fi
+            printf -v "$S10_SIZE_NAME" '%s' "$S10_SIZE_VALUE" || exit 1
+        done <<< "$S10_LAYOUT_VALUES"
+        unset S10_LAYOUT_VALUES S10_SIZE_NAME S10_SIZE_VALUE
+    fi
     GET_BUILD_VAR "TARGET_BOOT_PARTITION_SIZE" "none"
     GET_BUILD_VAR "TARGET_DTBO_PARTITION_SIZE" "none"
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        GET_BUILD_VAR "TARGET_DTB_PARTITION_SIZE" "none"
+    fi
     GET_BUILD_VAR "TARGET_DTBO_LTE_PARTITION_SIZE" "none"
     GET_BUILD_VAR "TARGET_RECOVERY_PARTITION_SIZE" "none"
     GET_BUILD_VAR "TARGET_LK3RD_PARTITION_SIZE" "none"
     GET_BUILD_VAR "TARGET_INIT_BOOT_PARTITION_SIZE" "none"
     GET_BUILD_VAR "TARGET_VENDOR_BOOT_PARTITION_SIZE" "none"
     GET_BUILD_VAR "TARGET_SUPER_PARTITION_SIZE"
+    if [ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]; then
+        # Sizes must come from the actual target layout, never a different device.
+        for PARTITION in SYSTEM VENDOR PRODUCT SYSTEM_EXT ODM VENDOR_DLKM ODM_DLKM SYSTEM_DLKM; do
+            GET_BUILD_VAR "TARGET_${PARTITION}_PARTITION_SIZE" "none"
+        done
+    fi
     GET_BUILD_VAR "SOURCE_SUPER_GROUP_NAME"
     GET_BUILD_VAR "TARGET_SUPER_GROUP_NAME" "$SOURCE_SUPER_GROUP_NAME"
     GET_BUILD_VAR "TARGET_$(tr "[:lower:]" "[:upper:]" <<< "${TARGET_SUPER_GROUP_NAME:-$SOURCE_SUPER_GROUP_NAME}")_SIZE"
@@ -564,7 +641,11 @@ fi
     GET_BUILD_VAR "SOURCE_WLAN_SUPPORT_MIMO"
     GET_BUILD_VAR "TARGET_WLAN_SUPPORT_MIMO"
     GET_BUILD_VAR "SOURCE_WLAN_SUPPORT_MOBILEAP_5G_BASEDON_COUNTRY"
-    GET_BUILD_VAR "TARGET_WLAN_SUPPORT_MOBILEAP_5G_BASEDON_COUNTRY"
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        GET_BUILD_VAR "TARGET_WLAN_MOBILEAP_5G_COUNTRY_POLICY"
+    else
+        GET_BUILD_VAR "TARGET_WLAN_SUPPORT_MOBILEAP_5G_BASEDON_COUNTRY"
+    fi
     GET_BUILD_VAR "SOURCE_WLAN_SUPPORT_MOBILEAP_6G"
     GET_BUILD_VAR "TARGET_WLAN_SUPPORT_MOBILEAP_6G"
     GET_BUILD_VAR "SOURCE_WLAN_SUPPORT_MOBILEAP_DUALAP"
