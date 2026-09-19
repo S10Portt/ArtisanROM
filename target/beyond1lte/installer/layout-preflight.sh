@@ -19,29 +19,13 @@
 # build time by scripts/utils/s10_installer_guard.py instead -- this
 # script does not touch them.
 
-# LAYOUT_PREFLIGHT_BLOCK_ROOTS / LAYOUT_PREFLIGHT_SYS_CLASS_BLOCK: only ever
-# set by this script's own test harness (see the fixture test invoked from
-# scripts/), never in a real recovery environment -- lets the exact same
-# resolution logic run against a fake root instead of the real /dev, /sys.
-BLOCK_ROOTS="${LAYOUT_PREFLIGHT_BLOCK_ROOTS:-/dev/block/platform/13d60000.ufs/by-name /dev/block/bootdevice/by-name /dev/block/by-name}"
-SYS_CLASS_BLOCK="${LAYOUT_PREFLIGHT_SYS_CLASS_BLOCK:-/sys/class/block}"
+# Check precisely the paths written by updater-script. No alternate alias fallback.
+BLOCK_ROOT=/dev/block/by-name
+SYS_CLASS_BLOCK=/sys/class/block
 
 fail() {
     echo "layout-preflight: FAIL: $1" 1>&2
     exit 1
-}
-
-resolve_link() {
-    # Prints the resolved by-name path for $1, or nothing if not found.
-    local name="$1"
-    local root
-    for root in $BLOCK_ROOTS; do
-        if [ -e "$root/$name" ]; then
-            echo "$root/$name"
-            return 0
-        fi
-    done
-    return 1
 }
 
 sysfs_size_path() {
@@ -85,11 +69,12 @@ check_partition() {
     local expected_sectors="$2"
 
     local link
-    link="$(resolve_link "$name")" || fail "partition '$name' not found under any known by-name path"
+    link="$BLOCK_ROOT/$name"
+    [ -b "$link" ] || fail "write target is not a block device: $link"
 
     local real
-    real="$(readlink -f "$link" 2>/dev/null)"
-    [ -n "$real" ] || real="$link"
+    real="$(readlink -f "$link" 2>/dev/null)" || fail "cannot resolve $link"
+    [ -n "$real" ] || fail "empty resolved path for $link"
     local devnode
     devnode="$(basename "$real")"
 

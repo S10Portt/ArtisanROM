@@ -360,7 +360,7 @@ GENERATE_UPDATER_SCRIPT()
             # user-repartition-20260913 profile before any block_image_update()
             # writes -- see target/beyond1lte/installer/layout-preflight.sh.
             echo    'ui_print("Checking partition layout...");'
-            echo    'package_extract_file("layout-preflight.sh", "/tmp/layout-preflight.sh");'
+            echo    'assert(package_extract_file("layout-preflight.sh", "/tmp/layout-preflight.sh"));'
             echo    'set_metadata("/tmp/layout-preflight.sh", "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0755);'
             echo    'assert(run_program("/tmp/layout-preflight.sh") == "0");'
         fi
@@ -870,6 +870,7 @@ else
 fi
 
 if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    python3 "$SRC_DIR/scripts/utils/s10_installer_guard.py" "$SRC_DIR" "$OUT_DIR/$ZIP_FILE_NAME" || exit 1
     # Preserve the actual metadata after image-generator adjustments, outside
     # both the cleanup directory and the cache-approved work tree.
     S10_PACKAGE_EVIDENCE="$(python3 "$SRC_DIR/scripts/utils/s10_package_evidence.py" \
