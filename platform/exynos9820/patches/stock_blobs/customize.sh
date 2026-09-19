@@ -148,7 +148,7 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
         LOGE "File not found: ${_CPUSET_RC//$WORK_DIR/}"
         return 1
     fi
-    if ! grep -qF "mkdir /dev/cpuset/sf" "$_CPUSET_RC"; then
+    _CPUSET_BLOCK="$(
         {
             echo ""
             echo "# GZD7 compatibility cpusets (sf / foreground-boost) -- see target/beyond1lte/README.md"
@@ -173,9 +173,21 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
             echo "    chmod 0664 /dev/cpuset/foreground-boost/cgroup.procs"
             echo "    chmod 0664 /dev/cpuset/foreground-boost/cpus"
             echo "    write /dev/cpuset/foreground-boost/cpus 0-7"
-        } >> "$_CPUSET_RC"
+        }
+    )"
+    if grep -qE '^[[:space:]]*mkdir /dev/cpuset/(sf|foreground-boost)([[:space:]]|$)' "$_CPUSET_RC"; then
+        # A previous/partial patch must not silently suppress either group.
+        while IFS= read -r _CPUSET_LINE; do
+            [[ "$_CPUSET_LINE" == "    "* ]] || continue
+            if ! grep -qxF "$_CPUSET_LINE" "$_CPUSET_RC"; then
+                LOGE "Incomplete compatibility cpuset configuration: $_CPUSET_LINE"
+                return 1
+            fi
+        done <<< "$_CPUSET_BLOCK"
+    else
+        printf '%s\n' "$_CPUSET_BLOCK" >> "$_CPUSET_RC"
     fi
-    unset _CPUSET_RC
+    unset _CPUSET_RC _CPUSET_BLOCK _CPUSET_LINE
     LOG_STEP_OUT
 
     # 2026-09-19: real-device logcat showed Bluetooth A2DP media audio
@@ -211,9 +223,12 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
     # codec negotiation failure (SBC negotiates correctly; the vendor A2DP
     # offload HIDL service itself starts fine when actually asked to).
     #
+    # Existing /data settings can override this default. A data-preserving
+    # update needed the developer-option toggle to be enabled again (§32.8).
+    # Fresh-install automatic application has not been independently tested.
     # Fix: default persist.bluetooth.a2dp_offload.disabled=true so this
-    # device always uses the software A2DP path (proven working for SBC/AAC/
-    # LDAC in the A/B test above), instead of Samsung's hardware-offload
+    # device defaults to the software A2DP path (SBC tested with EDIFIER X1;
+    # AAC/LDAC are not validated by that test), instead of Samsung's hardware-offload
     # path that HWC1's HAL can't actually complete for this donor
     # combination. This is the safer of the two options ChatGPT(웹)
     # presented (vs. a targeted A2dpServiceHelper patch to skip

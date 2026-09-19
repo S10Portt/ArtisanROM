@@ -219,7 +219,7 @@ SET_FLOATING_FEATURE_CONFIG()
         return 1
     fi
 
-    # Anchored, fixed-string match on <TAG> (not a bare/regex substring) so a
+    # Fixed-string match on <TAG> (not a bare/regex substring) so a
     # shorter key that is a prefix of a longer, still-present key (e.g.
     # ..._AI_HIGH_RESOLUTION vs ..._AI_HIGH_RESOLUTION_DRAFT_DOWNSCALE) is
     # never mistaken for "exists". A prior bare `grep -q "$CONFIG"` here
@@ -227,7 +227,7 @@ SET_FLOATING_FEATURE_CONFIG()
     # address for the "replace" branch's `c\` command -- which sed then
     # applies to every line, overwriting the whole file with N copies of
     # one entry (confirmed via isolated repro, 2026-09-19). Requiring
-    # exactly one match here, and failing closed on zero or on duplicates,
+    # one matching line for replacement and rejecting multiple matching lines,
     # closes that gap instead of just relocating it.
     local MATCH_LINES MATCH_COUNT
     MATCH_LINES="$(grep -nF "<${CONFIG}>" "$FILE" | cut -d: -f1)"

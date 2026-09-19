@@ -16,6 +16,10 @@
   `sf`/`foreground-boost` cpuset groups
 - Fix silent Bluetooth A2DP media playback (force software encoding
   datapath instead of the unsupported hardware-offload path)
+  - Data-preserving updates may require enabling "Disable Bluetooth A2DP
+    hardware offload" again in Developer options and reconnecting the headset.
+    Tested with EDIFIER X1/SBC; clean-install automatic application and
+    AAC/LDAC playback are not yet independently verified.
 - Fix a 32-bit integer overflow in the installer's partition-size
   preflight check that could reject valid installs
 - Add Korean (ko) translation for Settings and Setup Wizard strings
