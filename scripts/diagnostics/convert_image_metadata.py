@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 import re
 import struct
 import tempfile
+from external_output import external_output_parent
 
 
 def encode_builder_context_path(path):
@@ -139,7 +140,7 @@ def main():
         entry["capability_xattr_present"] = "security.capability" in attr
         entry["capability_xattr_hex"] = attr.get("security.capability", b"").hex()
 
-    out = Path(tempfile.mkdtemp(prefix=f"metadata-{args.partition}.", dir=parent))
+    out = Path(tempfile.mkdtemp(prefix=f"metadata-{args.partition}.", dir=external_output_parent(parent)))
     (out / f"fs_config-{args.partition}").write_text("".join(fs_lines))
     (out / f"file_context-{args.partition}").write_text("".join(context_lines))
     # Retain original link targets and types: fs_config alone cannot represent them.

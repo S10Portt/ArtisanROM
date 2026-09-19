@@ -873,8 +873,9 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
     python3 "$SRC_DIR/scripts/utils/s10_installer_guard.py" "$SRC_DIR" "$OUT_DIR/$ZIP_FILE_NAME" || exit 1
     # Preserve the actual metadata after image-generator adjustments, outside
     # both the cleanup directory and the cache-approved work tree.
+    S10_RECORDS_DIR="$(python3 "$SRC_DIR/scripts/diagnostics/external_output.py")" || exit 1
     S10_PACKAGE_EVIDENCE="$(python3 "$SRC_DIR/scripts/utils/s10_package_evidence.py" \
-        "$TMP_DIR" "$OUT_DIR/$ZIP_FILE_NAME" "$OUT_DIR/package-evidence" "$WORK_DIR")" || exit 1
+        "$TMP_DIR" "$OUT_DIR/$ZIP_FILE_NAME" "$S10_RECORDS_DIR/package-evidence" "$WORK_DIR")" || exit 1
     LOG "S10 packaging evidence: $S10_PACKAGE_EVIDENCE"
 fi
 

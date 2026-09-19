@@ -12,6 +12,7 @@ import os
 import shutil
 import tarfile
 import tempfile
+from external_output import external_output_parent
 from verify_image_tree import archive_path, check_tree, digest, regular
 
 
@@ -33,7 +34,7 @@ def main():
     if digest(archive) != proof['archive_sha256']:
         raise ValueError('archive changed since verification')
     entries = json.loads((a.conversion / 'paths.json').read_text())
-    out = Path(tempfile.mkdtemp(prefix='expanded-' + conv['partition'] + '.', dir=a.output_parent))
+    out = Path(tempfile.mkdtemp(prefix='expanded-' + conv['partition'] + '.', dir=external_output_parent(a.output_parent)))
     tree = out / 'tree'
     tree.mkdir()
     # Check all parent types before creating anything from the archive.

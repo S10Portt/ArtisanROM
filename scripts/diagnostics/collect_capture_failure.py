@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+from external_output import external_output_parent
 import time
 
 PROCESSES = ('system_server', 'surfaceflinger', 'mediaserver', 'media.codec')
@@ -38,8 +39,9 @@ def now():
 
 
 def collect(args, runner=subprocess.run):
+    args.output = external_output_parent(args.output)
     args.output.mkdir(parents=True, exist_ok=True)
-    output = Path(tempfile.mkdtemp(prefix='capture-'+args.label+'-', dir=args.output))
+    output = Path(tempfile.mkdtemp(prefix='capture-'+args.label+'-', dir=external_output_parent(args.output)))
     report = {'label': args.label, 'scope': __doc__, 'started': now(), 'commands': {}}
 
     def command(name, argv):

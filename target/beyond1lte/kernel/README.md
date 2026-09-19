@@ -3,7 +3,7 @@
 Selected mode: `source`.
 Repository: https://github.com/ArtisanRomS10/android_kernel_samsung_exynos9820.git
 Commit: `bf6931b605aacb7f434d6ff440344a0c3e1f92e1` (KernelSU integration removed; two selected LOS fixes).
-Selected local branch: `port/los-fixes-20260915`. This revision has not been pushed by this task; remote main remains a separate reference. See `target/beyond1lte/README.md`.
+Use the pinned revision above; do not substitute a moving branch tip.
 
 Required user-built inputs:
 - boot.img, dtb.img, dtbo.img: one consistent set from the selected source.

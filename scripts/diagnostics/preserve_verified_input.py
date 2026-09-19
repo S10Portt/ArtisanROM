@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import tempfile
+from external_output import external_output_parent
 
 from verify_image_tree import check_tree, digest, regular
 
@@ -39,7 +40,7 @@ def preserve(expansion, verification, output_parent):
     entries = json.loads((convdir / 'paths.json').read_text())
     tree = Path(exp['tree'])
     check_tree(tree, entries, proof['file_sha256'])
-    out = Path(tempfile.mkdtemp(prefix=partition + '.', dir=output_parent))
+    out = Path(tempfile.mkdtemp(prefix=partition + '.', dir=external_output_parent(output_parent)))
     # Separate inodes: later changes cannot modify the analysis source through hard links.
     shutil.copytree(tree, out / 'tree', symlinks=True)
     metadata = out / 'metadata'

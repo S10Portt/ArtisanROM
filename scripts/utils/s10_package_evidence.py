@@ -74,6 +74,10 @@ def preserve(stage, archive, output, work):
     for name, expected in records.items():
         if snapshot(stage/name)[0] != expected:
             raise ValueError(f'packaging evidence changed: {name}')
+    # Import lazily so snapshot-only consumers need no output directory.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'diagnostics'))
+    from external_output import external_output_parent
+    output = external_output_parent(output)
     output.mkdir(parents=True, exist_ok=True)
     destination = Path(tempfile.mkdtemp(prefix='s10-package-', dir=output))
     for name, content in contents.items():

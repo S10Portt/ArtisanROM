@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Apply S10 encoder caller workarounds and a bounded process-name read to exactly GZD7 libstagefright.
 
-See target/beyond1lte/README.md and
-target/beyond1lte/README.md This is a
+This is a
 compatibility policy, not proof of encoder feature support or runtime safety.
 """
 import hashlib

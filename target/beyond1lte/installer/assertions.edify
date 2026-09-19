@@ -1,8 +1,3 @@
-# installer abort removed 2026-09-18 for a controlled, single-device test
-# flash on the user's own measured "user-repartition-20260913" S10, with
-# explicit user approval, after the checks recorded in
-# target/beyond1lte/README.md (through §16, ZIP sha256
-# 2eaa616db02c54695b2fb64082ae52ab71ecf2cab9c29bf386d010084f8e57f4) and after
-# the user confirmed backup/recovery is prepared. Do not reintroduce this
-# abort's removal as precedent for any other device/build without redoing
-# that same review.
+# Controlled test installation is enabled for the explicitly selected
+# user-repartition-20260913 layout. The installer must validate all six actual
+# write paths before writing; this does not authorize other devices/layouts.

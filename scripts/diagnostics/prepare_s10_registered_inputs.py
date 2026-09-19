@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from external_output import external_output_parent
 
 from verify_image_tree import check_tree, digest, regular
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'utils'))
@@ -22,7 +23,7 @@ def prepare(records_file, hwc1_manifest, output_parent):
     expected = {(fw, p) for fw, name in mapping.items() for p in PARTITIONS[name]}
     if len(keys) != len(set(keys)) or set(keys) != expected:
         raise ValueError('expected exactly six preserved partitions')
-    output = Path(tempfile.mkdtemp(prefix='s10-fw.', dir=output_parent))
+    output = Path(tempfile.mkdtemp(prefix='s10-fw.', dir=external_output_parent(output_parent)))
     registrations = {}
     for fw, name in mapping.items():
         (output / name).mkdir()

@@ -82,7 +82,6 @@ TARGET_CAMERA_SUPPORT_SDK_SERVICE=false
 
 # Retain observed HWC1 / working S10 3.1.1 code behavior.
 # Source GZD7 patch applicability is a separate, unfinished check.
-# Full method excerpts and hashes: target/beyond1lte/README.md
 TARGET_BLUETOOTH_SUPPORT_A2DPSINK_PROFILE=true
 TARGET_BLUETOOTH_SUPPORT_A2DP_SBM=false
 TARGET_BLUETOOTH_SUPPORT_HEAD_SAR_BACKOFF=false

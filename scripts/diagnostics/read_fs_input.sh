@@ -58,7 +58,9 @@ case "$FS_TYPE" in
     ext4) FS_OPTIONS=loop,ro,noload ;;
     *) echo "Unsupported filesystem: $FS_TYPE" >&2; exit 1 ;;
 esac
-OUT=$(mktemp -d "$PWD/fs-evidence.XXXXXX") || exit 1
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+RECORDS_PARENT="$(python3 "$SCRIPT_DIR/external_output.py")" || exit 1
+OUT=$(mktemp -d "$RECORDS_PARENT/fs-evidence.XXXXXX") || exit 1
 MNT="$OUT/mount"
 mkdir "$MNT" || exit 1
 MOUNTED=false

@@ -21,3 +21,15 @@ security/artisanrom_platform.pk8
 !.gitattributes
 !.gitignore
 !.gitmodules
+
+# Diagnostics/session records belong outside the source checkout (AGENTS.md).
+/docs/exynos9820-*
+/doc/exynos9820-*
+/device-diag-*/
+/s10-tombstones/
+/fs-evidence.*/
+/f2fs-evidence.*/
+/gzd7-functions.*/
+__pycache__/
+*.py[cod]
+/external/libvintf/

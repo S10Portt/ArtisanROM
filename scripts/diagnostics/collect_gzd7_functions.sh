@@ -5,6 +5,8 @@ set -euo pipefail
 IMAGE="${1:?usage: collect_gzd7_functions.sh SYSTEM_IMAGE OUTPUT_PARENT}"
 PARENT="${2:?output parent required}"
 [[ -f "$IMAGE" && ! -L "$IMAGE" && -d "$PARENT" ]] || exit 1
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PARENT="$(python3 "$SCRIPT_DIR/external_output.py" "$PARENT")"
 OUT=$(mktemp -d "$PARENT/gzd7-functions.XXXXXX")
 MOUNT_POINT="$OUT/mount"
 mkdir "$MOUNT_POINT"

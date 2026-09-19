@@ -19,7 +19,9 @@ case "$TYPE" in
     "F2FS filesystem"*) ;;
     *) echo "Expected a raw F2FS image; detected: $TYPE" >&2; exit 1 ;;
 esac
-OUT=$(mktemp -d "$PWD/f2fs-evidence.XXXXXX") || exit 1
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+RECORDS_PARENT="$(python3 "$SCRIPT_DIR/external_output.py")" || exit 1
+OUT=$(mktemp -d "$RECORDS_PARENT/f2fs-evidence.XXXXXX") || exit 1
 MNT="$OUT/mount"
 mkdir "$MNT" || exit 1
 MOUNTED=false

@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 import stat
 import tarfile
 import tempfile
+from external_output import external_output_parent
 
 
 def digest(path):
@@ -142,7 +143,7 @@ def main():
         check_tree(args.expanded_tree, entries, hashes)
     if digest(archive) != sha:
         raise ValueError("archive changed during verification")
-    out = Path(tempfile.mkdtemp(prefix='tree-check.', dir=args.output_parent))
+    out = Path(tempfile.mkdtemp(prefix='tree-check.', dir=external_output_parent(args.output_parent)))
     report = {'scope': 'archive matches collected inode/security metadata; image binding relies on collector records',
               'conversion_sha256': digest(args.conversion / 'conversion.json'), 'archive_sha256': sha,
               'paths': len(entries), 'file_sha256': hashes, 'archive_metadata_match': True,

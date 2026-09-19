@@ -21,12 +21,10 @@ ABORT = 'abort("beyond1lte source port is incomplete; see target/beyond1lte/READ
 # This keeps abort removal explicit in the repository while preserving all
 # unrelated installer guards below.
 
-# ArtisanROM 3.1.1's own installer (target/beyond1lte/README.md)
-# does write odm/prism/optics (block_image_update) and up_param (package_extract_file
+# ArtisanROM 3.1.1's installer writes odm/prism/optics (block_image_update) and up_param (package_extract_file
 # of up_param.bin) as part of a normal install -- they are not factory-locked or
 # out of OTA scope. This build simply has no GZD7-compatible, verified replacement
-# data for any of the four yet (see target/beyond1lte/README.md,
-# corrected 2026-09-18), so it must not write them until that data exists. Reject
+# data for these four, so it must not write them until that data exists. Reject
 # any updater-script that references their block devices or ships a matching
 # transfer.list/new.dat/img/bin asset, by name or by a bare "by-name/<partition>"
 # path, so a future accidental (or copy-pasted-from-3.1.1) write is caught here

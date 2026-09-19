@@ -16,6 +16,7 @@ import struct
 import subprocess
 import tarfile
 import tempfile
+from external_output import external_output_parent
 import zipfile
 
 EXPECTED_ZIP = "84a96e2d7d372dfb7786e1d99470398d5a8172dceae78920738b32daad208c3b"
@@ -100,7 +101,7 @@ def main():
     print("Checking HWC1 ZIP fingerprint...", flush=True)
     if digest(source) != EXPECTED_ZIP:
         raise ValueError("ZIP differs from the recorded local HWC1 package; refusing input")
-    out = Path(tempfile.mkdtemp(prefix="hwc1-images.", dir=parent))
+    out = Path(tempfile.mkdtemp(prefix="hwc1-images.", dir=external_output_parent(parent)))
     print(f"Output directory: {out}", flush=True)
     manifest = {
         "scope": "Local pinned ZIP extraction; not Samsung authentication, TAR MD5 verification, AVB verification or builder input approval",
