@@ -224,6 +224,18 @@ if $BUILD_ROM; then
         LOG_STEP_OUT
     fi
 
+    if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+        # Apply after all modules: QHD product features replace SurfaceFlinger.
+        LOG_STEP_IN true "Fixing legacy composer display port validation"
+        python3 "$SRC_DIR/scripts/utils/s10_display_port.py" \
+            "$WORK_DIR/system/system/bin/surfaceflinger" || exit 1
+        LOG_STEP_OUT
+        LOG_STEP_IN true "Fixing legacy HDMI audio output flag"
+        python3 "$SRC_DIR/scripts/utils/s10_hdmi_audio.py" \
+            "$WORK_DIR/vendor/lib/hw/audio.primary.exynos9820.so" || exit 1
+        LOG_STEP_OUT
+    fi
+
     FINAL_INPUT_HASH="$(GET_WORK_DIR_HASH)" || exit 1
     if [[ "$BUILD_INPUT_HASH" != "$FINAL_INPUT_HASH" ]]; then
         LOGE "Build inputs covered by the cache key changed during work generation"
