@@ -1,5 +1,28 @@
 # ArtisanROM changelog
 
+# Unreleased (Galaxy S10 / exynos9820 re-port, branch `port/exynos9820-s10`)
+- Re-add Galaxy S10 (beyond1lte/exynos9820) support, removed in 3.5.0
+  (system partition sourced from S22 Ultra/GZD7, vendor partition
+  sourced from a real S10/HWC1)
+- Fix boot loop caused by zygote_secondary aborting on empty
+  `ro.product.cpu.abilist32`
+- Fix SystemUI crash loop (screen off/reboot cycling) caused by a
+  `floating_feature.xml`-corrupting bug in the shared build script
+  (`SET_FLOATING_FEATURE_CONFIG`) that could affect any target, not
+  just this one
+- Fix camera app crash when taking HIFI_LLS/LLHDR photos (missing
+  HIDL client stub libraries for the multi-frame-processing pipeline)
+- Fix SurfaceFlinger being stuck in the root cpuset group, restore
+  `sf`/`foreground-boost` cpuset groups
+- Fix silent Bluetooth A2DP media playback (force software encoding
+  datapath instead of the unsupported hardware-offload path)
+- Fix a 32-bit integer overflow in the installer's partition-size
+  preflight check that could reject valid installs
+- Add Korean (ko) translation for Settings and Setup Wizard strings
+- Known issue: wired Samsung DeX to an external display does not
+  work yet (external display connection is rejected) - not fixed in
+  this branch, tracked for a follow-up
+
 # 3.5.1
 - Switch to S22 Ultra firmware
 - Fix 120hz
