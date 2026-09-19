@@ -84,10 +84,9 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
     unset _CPUSET_RC _CPUSET_BLOCK _CPUSET_LINE
     LOG_STEP_OUT
 
-    # Disable incompatible Samsung hardware offload by default. Existing /data
-    # settings may require re-enabling the developer-option toggle. Only SBC
-    # playback is validated; fresh-install automatic application and AAC/LDAC
-    # remain unverified.
+    # Software A2DP default. The beyond1lte user_defaults module also restores
+    # this after /data properties load, overriding a saved incompatible value.
+    # Only SBC playback is validated; AAC/LDAC remain unverified.
     SET_PROP "system" "persist.bluetooth.a2dp_offload.disabled" "true"
 fi
 

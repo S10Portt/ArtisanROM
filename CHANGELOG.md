@@ -16,10 +16,9 @@
   `sf`/`foreground-boost` cpuset groups
 - Fix silent Bluetooth A2DP media playback (force software encoding
   datapath instead of the unsupported hardware-offload path)
-  - Data-preserving updates may require enabling "Disable Bluetooth A2DP
-    hardware offload" again in Developer options and reconnecting the headset.
-    Tested with EDIFIER X1/SBC; clean-install automatic application and
-    AAC/LDAC playback are not yet independently verified.
+  - SBC playback has been tested on-device. Automatic enforcement of the
+    software-only setting requires validation with the next build;
+    AAC/LDAC playback remains unverified.
 - Fix a 32-bit integer overflow in the installer's partition-size
   preflight check that could reject valid installs
 - Add Korean (ko) translation for Settings and Setup Wizard strings
@@ -28,9 +27,12 @@
 - Align the legacy HDMI audio HAL output flag with the system donor;
   host output-selection tests pass. Post-flash operation was reported working;
   the full output-switching and playback regression matrix is not yet verified.
-- Known issue: Bluetooth media is silent when "Disable Bluetooth A2DP hardware
-  offload" is turned off. Keep this option enabled for software playback;
-  hardware offload support remains under investigation.
+- Select software Bluetooth A2DP after saved properties load on every boot,
+  including data-preserving upgrades; developer options need not be enabled.
+  Lock the developer preference to software playback and restore the property
+  if changed. Hardware offload remains unsupported; this is a workaround.
+- Initialize window, transition and animator duration scales to 0.5 on the
+  first boot with these defaults, preserving subsequent user changes.
 
 # 3.5.1
 - Switch to S22 Ultra firmware

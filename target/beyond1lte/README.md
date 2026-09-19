@@ -29,6 +29,16 @@ target after modules. Host instruction tests cover output selection. Post-flash
 operation was reported working; the full output-switching and playback
 regression matrix is not yet verified.
 
-Bluetooth A2DP hardware offload remains unresolved. Keep "Disable Bluetooth
-A2DP hardware offload" enabled for the validated software playback path.
-An audioserver restart experiment has not been added to this target.
+Bluetooth A2DP hardware offload is not supported. The target forces software
+A2DP after persistent properties load on each boot, including data-preserving
+updates with a previously saved offload-enabled value. Developer options do not
+need to be enabled. The hardware-offload-disable preference is checked and
+locked in Settings; init restores the software-only property if changed.
+This is a compatibility workaround, not a hardware offload implementation.
+Only SBC playback has been validated; other codecs require separate testing.
+
+Window animation, transition animation and animator duration scales are set to
+0.5 once after boot completion. This also updates existing installations. A
+Settings.Global migration marker preserves subsequent user changes; a factory
+reset clears the marker and reapplies the defaults. Developer options remain
+unchanged. No audio-service restart experiment is installed.
