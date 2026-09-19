@@ -153,6 +153,51 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
     fi
     unset _CPUSET_RC
     LOG_STEP_OUT
+
+    # 2026-09-19: real-device logcat showed Bluetooth A2DP media audio
+    # (music/video) completely silent while connected to a normal A2DP
+    # earphone (EDIFIER X1, SBC codec) - connect/disconnect tones worked,
+    # actual media playback did not, and stayed silent until BT was
+    # disconnected. Root-caused with ChatGPT(웹) via a live A/B test on this
+    # exact device (Developer Options > "Disable A2DP hardware offload" ON,
+    # no rebuild needed to test): with hardware offload forced off, the same
+    # earphone/track played normally, and the failure signature below
+    # disappeared entirely.
+    #
+    # Full chain: com.android.bluetooth (GZD7-sourced, Android 16 Bluetooth
+    # stack) negotiates SBC with the earphone and the Bluetooth Audio HAL
+    # correctly starts the *software* A2DP datapath for it
+    # (A2DP_SOFTWARE_ENCODING_DATAPATH, StartSession SUCCESS) - but
+    # A2dpServiceHelper still calls setOffloadModeNative(1) right after,
+    # forcing Samsung's Exynos hardware-offload path on top of a codec its
+    # own logging admits doesn't support offload ("IsCodecOffloadingEnabled:
+    # software codec={SBC...}" immediately followed by "support offload =
+    # false, offload running = true"). AudioPolicy then reconfigures the A2DP
+    # device and routes deep_buffer output through HWC1's
+    # audio_hw_proxy_9820 HAL for the (now-mismatched) hardware-offload
+    # path, where PCM prepare fails every single time:
+    #   audio_hw_proxy_9820: deep_out-proxy_write_playback_buffer: failed to
+    #   write to PCM Device with cannot prepare channel: Invalid argument
+    # (9200+ consecutive failures observed over ~3 minutes of attempted
+    # playback) - the media app's MediaSession stays in PLAYING state the
+    # whole time since nothing above the HAL ever sees an error, it is a
+    # pure silent HAL-level failure. This is a generation mismatch between
+    # GZD7's newer Bluetooth stack's offload decision logic and HWC1's older
+    # Exynos9820 hardware-offload HAL implementation, not a missing blob or
+    # codec negotiation failure (SBC negotiates correctly; the vendor A2DP
+    # offload HIDL service itself starts fine when actually asked to).
+    #
+    # Fix: default persist.bluetooth.a2dp_offload.disabled=true so this
+    # device always uses the software A2DP path (proven working for SBC/AAC/
+    # LDAC in the A/B test above), instead of Samsung's hardware-offload
+    # path that HWC1's HAL can't actually complete for this donor
+    # combination. This is the safer of the two options ChatGPT(웹)
+    # presented (vs. a targeted A2dpServiceHelper patch to skip
+    # setOffloadModeNative() when the negotiated codec doesn't support
+    # offload) - it trades potential power-efficiency loss from software
+    # encoding for guaranteed-working A2DP audio. Scoped to beyond1lte: not
+    # verified for any other device sharing this platform module.
+    SET_PROP "system" "persist.bluetooth.a2dp_offload.disabled" "true"
 fi
 
 LOG_STEP_IN "- Adding stock NFC Case features"
