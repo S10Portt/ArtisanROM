@@ -56,16 +56,35 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
     # all three in its own public.libraries-camera.samsung.txt, since the
     # real S10 camera generation needs them. ELF NEEDED closure and the
     # exported "construct" symbol were checked for every file added below
-    # (readelf -d / -Ws) - all NEEDED entries resolve either from GZD7's own
-    # system libs (libc/libc++/libutils/... - present in both donors) or from
-    # HWC1's vendor partition (libhidlbase/libhidltransport/vendor.samsung_slsi.hardware.iva@1.0.so/
-    # vendor.samsung_slsi.hardware.MultiFrameProcessing20@1.0.so - present in
-    # HWC1 vendor/lib(64), which this ROM's vendor partition is sourced from
-    # wholesale, along with the corresponding HIDL service binaries + init.rc
-    # already present there unmodified). Same donor-mismatch shape as the
-    # SoundBooster fix above. Precedent for this exact "add target's own
-    # missing native camera lib" pattern: UN1CA r8q
-    # target/r8q/patches/camera/customize.sh (adds
+    # (readelf -d / -Ws).
+    #
+    # 2026-09-19 correction (real-device retest after the fix above):
+    # libMultiFrameProcessing10.camera.samsung.so still failed to dlopen,
+    # now with a more specific error:
+    #   dlopen failed: library "vendor.samsung_slsi.hardware.iva@1.0.so" not
+    #   found: needed by /system/lib64/libMultiFrameProcessing10.camera.samsung.so
+    #   in namespace clns-shared-12
+    # `dumpsys package` confirmed the MFP libs themselves DO resolve as
+    # usesLibraryFiles now, so the file-presence/public.libraries fix above
+    # was necessary but not sufficient - the ORIGINAL note here ("resolves
+    # from HWC1's vendor partition, sourced wholesale") was wrong: HWC1's
+    # vendor/etc/public.libraries.txt does NOT list
+    # vendor.samsung_slsi.hardware.iva@1.0.so or
+    # vendor.samsung_slsi.hardware.MultiFrameProcessing20@1.0.so (checked
+    # directly - it only exposes 5 unrelated camera libs to the sphal
+    # namespace), so an app process's linker namespace can never see the
+    # vendor/lib(64) copies no matter how the vendor partition is sourced.
+    # HWC1 avoids this entirely on real hardware by *also* shipping both
+    # HIDL client stub libraries directly on system/lib(64) (confirmed via
+    # out/fw/SM-G973F_AUT/fs_config-system and irremovable_list.txt) -
+    # system-partition libraries are visible to app processes without the
+    # vendor/sphal namespace bridge at all. GZD7 has neither file on its own
+    # system partition (this Samsung-SLSI chip HAL is S10/exynos9820-era
+    # only). Fix: add HWC1's own system-side copies of both HIDL client
+    # stubs the same way as the MFP libs themselves, mirroring exactly how
+    # real stock S10 firmware makes them available to its own Camera app.
+    # Precedent for this exact "add target's own missing native camera lib"
+    # pattern: UN1CA r8q target/r8q/patches/camera/customize.sh (adds
     # libSwIsp_core.camera.samsung.so the same way). Scoped to beyond1lte:
     # not verified for any other device sharing this platform module.
     LOG_STEP_IN "- Adding HWC1 (SM-G973F) donor's own libMultiFrameProcessing{10,20,20Day}.camera.samsung.so (missing from GZD7, crashes stock Camera app's HIFI_LLS/LLHDR/MFHDR nodes)"
@@ -77,6 +96,11 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
         fi
     done
     unset _MFP_VER
+    for _MFP_DEP in "vendor.samsung_slsi.hardware.iva@1.0.so" "vendor.samsung_slsi.hardware.MultiFrameProcessing20@1.0.so"; do
+        ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" "system/lib/${_MFP_DEP}" 0 0 644 "u:object_r:system_lib_file:s0"
+        ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" "system/lib64/${_MFP_DEP}" 0 0 644 "u:object_r:system_lib_file:s0"
+    done
+    unset _MFP_DEP
     LOG_STEP_OUT
 
     # 2026-09-19: real-device logcat is full of repeated
