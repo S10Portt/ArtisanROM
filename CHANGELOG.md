@@ -33,6 +33,9 @@
   if changed. Hardware offload remains unsupported; this is a workaround.
 - Initialize window, transition and animator duration scales to 0.5 on the
   first boot with these defaults, preserving subsequent user changes.
+- Reapply the initial S10 legacy USB charging configuration after the MTP
+  control descriptor is ready, allowing recovery from an early FunctionFS
+  bind failure without enabling USB debugging. On-device validation pending.
 
 # 3.5.1
 - Switch to S22 Ultra firmware
