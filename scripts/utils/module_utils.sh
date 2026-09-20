@@ -164,42 +164,10 @@ HEX_PATCH()
     _CHECK_NON_EMPTY_PARAM "FROM" "$2" || return 2
     _CHECK_NON_EMPTY_PARAM "TO" "$3" || return 2
 
-    local FILE="$1"
-    local FROM="$2"
-    local TO="$3"
-
-    # Return 1 only for an absent pattern; operational failures return 2.
-    if [[ ! -f "$FILE" || ! -r "$FILE" || -L "$FILE" ]]; then
-        LOGE "Invalid hex patch input: ${FILE//$WORK_DIR/}"
-        return 2
-    fi
-    FROM="${FROM,,}"
-    TO="${TO,,}"
-    if [[ ! "$FROM" =~ ^([0-9a-f]{2})+$ || ! "$TO" =~ ^([0-9a-f]{2})+$ ]]; then
-        LOGE "Invalid hex patch pattern"
-        return 2
-    fi
-    local HEX_DATA PATCH_TMP
-    HEX_DATA="$(xxd -p -c 0 "$FILE")" || return 2
-    if [[ "$HEX_DATA" != *"$FROM"* ]]; then
-        LOGE "No \"$FROM\" match in ${FILE//$WORK_DIR/}"
-        return 1
-    fi
-    LOG "- Patching \"$FROM\" to \"$TO\" in ${FILE//$WORK_DIR/}"
-    PATCH_TMP="$(mktemp "$FILE.patch.XXXXXX")" || return 2
-    if ! (
-        set -o pipefail
-        printf '%s' "$HEX_DATA" | sed "s/$FROM/$TO/" | xxd -r -p > "$PATCH_TMP"
-    ); then
-        rm -f "$PATCH_TMP"
-        return 2
-    fi
-    if ! chmod --reference="$FILE" "$PATCH_TMP" || ! mv -f "$PATCH_TMP" "$FILE"; then
-        rm -f "$PATCH_TMP"
-        return 2
-    fi
-
-    return 0
+    # Match bytes, not hex-string substrings. Only an absent pattern returns 1;
+    # validation and I/O failures return 2 without publishing partial output.
+    LOG "- Patching \"$2\" to \"$3\" in ${1//$WORK_DIR/}"
+    python3 "$SRC_DIR/scripts/utils/hex_patch.py" "$1" "$2" "$3"
 }
 
 # SET_FLOATING_FEATURE_CONFIG "<config>" "<value>"
