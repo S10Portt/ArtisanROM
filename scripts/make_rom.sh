@@ -201,12 +201,22 @@ if $BUILD_ROM; then
         while IFS= read -r -d '' f; do
             f="${f/$APKTOOL_DIR\//}"
             PARTITION="$(cut -d "/" -f 1 -s <<< "$f")"
-            if [[ "$PARTITION" == "system" ]]; then
-                "$SRC_DIR/scripts/apktool.sh" b "system" "$f" &
+            if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+                # Completion removes profiles from shared partition metadata.
+                # Serialize APK processes, retaining apktool's internal workers.
+                if [[ "$PARTITION" == "system" ]]; then
+                    "$SRC_DIR/scripts/apktool.sh" b "system" "$f" || exit 1
+                else
+                    "$SRC_DIR/scripts/apktool.sh" b "$PARTITION" "$(cut -d "/" -f 2- -s <<< "$f")" || exit 1
+                fi
             else
-                "$SRC_DIR/scripts/apktool.sh" b "$PARTITION" "$(cut -d "/" -f 2- -s <<< "$f")" &
+                if [[ "$PARTITION" == "system" ]]; then
+                    "$SRC_DIR/scripts/apktool.sh" b "system" "$f" &
+                else
+                    "$SRC_DIR/scripts/apktool.sh" b "$PARTITION" "$(cut -d "/" -f 2- -s <<< "$f")" &
+                fi
+                BUILD_PIDS+=("$!")
             fi
-            BUILD_PIDS+=("$!")
         done < "$APK_BUILD_LIST"
         BUILD_FAILED=0
         for BUILD_PID in "${BUILD_PIDS[@]}"; do
