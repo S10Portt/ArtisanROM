@@ -244,6 +244,7 @@ if $BUILD_ROM; then
         python3 "$SRC_DIR/scripts/utils/s10_hdmi_audio.py" \
             "$WORK_DIR/vendor/lib/hw/audio.primary.exynos9820.so" || exit 1
         LOG_STEP_OUT
+        python3 -B "$SRC_DIR/scripts/utils/s10_final_metadata.py" "$WORK_DIR" || exit 1
     fi
 
     FINAL_INPUT_HASH="$(GET_WORK_DIR_HASH)" || exit 1

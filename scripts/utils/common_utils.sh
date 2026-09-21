@@ -432,6 +432,9 @@ ADD_TO_WORK_DIR()
         fi
 
         while IFS= read -r f; do
+            # A system-as-root module also lists its inner system directory.
+            # Its metadata key is system, not the host path system/system.
+            [[ "$PARTITION" == "system" && "$f" == "system/system" ]] && f="system"
             IS_VALID_PARTITION_NAME "$f" && continue
 
             if ! _MATCH_METADATA_LINE "$WORK_DIR/configs/fs_config-$PARTITION" "$f" > /dev/null 2>&1; then

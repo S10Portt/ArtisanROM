@@ -670,6 +670,11 @@ SIGN_IMAGE_WITH_AVB()
 }
 # ]
 
+# Validate cached work trees too, before image metadata is copied or adjusted.
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    python3 -B "$SRC_DIR/scripts/utils/s10_final_metadata.py" "$WORK_DIR" || exit 1
+fi
+
 [ -d "$TMP_DIR" ] && rm -rf "$TMP_DIR"
 mkdir -p "$TMP_DIR/META-INF/com/google/android" "$TMP_DIR/image-metadata" || exit 1
 cp -a "$SRC_DIR/prebuilts/bootable/deprecated-ota/updater" "$TMP_DIR/META-INF/com/google/android/update-binary" || exit 1
