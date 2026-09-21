@@ -187,27 +187,24 @@ SET_FLOATING_FEATURE_CONFIG()
         return 1
     fi
 
-    # Fixed-string match on <TAG> (not a bare/regex substring) so a
-    # shorter key that is a prefix of a longer, still-present key (e.g.
-    # ..._AI_HIGH_RESOLUTION vs ..._AI_HIGH_RESOLUTION_DRAFT_DOWNSCALE) is
-    # never mistaken for "exists". A prior bare `grep -q "$CONFIG"` here
-    # could disagree with the sed lookup below, yielding an empty sed
-    # address for the "replace" branch's `c\` command -- which sed then
-    # applies to every line, overwriting the whole file with N copies of
-    # one entry (confirmed via isolated repro, 2026-09-19). Requiring
-    # one matching line for replacement and rejecting multiple matching lines,
-    # closes that gap instead of just relocating it.
-    local MATCH_LINES MATCH_COUNT
-    MATCH_LINES="$(grep -nF "<${CONFIG}>" "$FILE" | cut -d: -f1)"
-    MATCH_COUNT="$([ "$MATCH_LINES" ] && wc -l <<< "$MATCH_LINES" || echo 0)"
-
-    if [ "$MATCH_COUNT" -gt 1 ]; then
-        LOGE "Expected at most one \"$CONFIG\" entry in ${FILE//$WORK_DIR/}, found $MATCH_COUNT"
+    # Count exact opening tags, including duplicates on the same line.
+    # A substring match could otherwise produce an empty sed address and
+    # replace every line when only a longer feature name exists.
+    local MATCHES MATCH_LINES MATCH_COUNT STATUS
+    STATUS=0
+    MATCHES="$(grep -nFo "<${CONFIG}>" "$FILE")" || STATUS=$?
+    if [ "$STATUS" -gt 1 ]; then
         return 1
-    elif [ "$MATCH_COUNT" == 1 ]; then
+    fi
+    MATCH_LINES="$(cut -d: -f1 <<< "$MATCHES")"
+    MATCH_COUNT="$([ -n "$MATCHES" ] && wc -l <<< "$MATCHES" || echo 0)"
+    if [ "$MATCH_COUNT" -gt 1 ]; then
+        LOGE "Expected at most one \"$CONFIG\" entry, found $MATCH_COUNT"
+        return 1
+    elif [ "$MATCH_COUNT" -eq 1 ]; then
         if [[ "$VALUE" == "-d" ]] || [[ "$VALUE" == "--delete" ]]; then
             LOG "- Deleting \"$CONFIG\" config in /system/system/etc/floating_feature.xml"
-            sed -i "/<$CONFIG>/d" "$FILE"
+            sed -i "${MATCH_LINES}d" "$FILE"
         else
             LOG "- Replacing \"$CONFIG\" config with \"$VALUE\" in /system/system/etc/floating_feature.xml"
             sed -i "${MATCH_LINES} c\ \ \ \ <${CONFIG}>${VALUE}</${CONFIG}>" "$FILE"
