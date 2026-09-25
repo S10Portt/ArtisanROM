@@ -14,6 +14,17 @@ Only boot, dtb, dtbo, system, vendor and product are installer write targets.
 ODM, prism, optics and up_param are preserved. Recovery must validate actual
 write paths before installation. Build success does not certify device behavior.
 
+**Preserved does not mean provided.** This installer never writes odm/prism/
+optics/up_param, so whatever is already on those partitions at install time
+stays there unchanged. Every on-device boot confirmation to date has been on
+a device that already had ArtisanROM 3.1.1's odm/prism/optics content from a
+prior 3.1.1 install. Clean-flashing this build directly over stock firmware
+or another ROM is not a validated path and has produced boot loop reports;
+see `docs/exynos9820-aux-partition-dependency.md` for the evidence and a
+read-only way to check a given device's odm/prism/optics content against the
+known-good 3.1.1 values before assuming this is (or isn't) the cause on a
+specific failing device.
+
 See CHANGELOG.md for supported changes and known limitations. Session logs,
 reviews, device dumps, disassembly and build reports belong outside this source
 checkout. Keep only maintained source/configuration and reusable documentation.
