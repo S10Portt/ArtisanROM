@@ -19,11 +19,11 @@ optics/up_param, so whatever is already on those partitions at install time
 stays there unchanged. Every on-device boot confirmation to date has been on
 a device that already had ArtisanROM 3.1.1's odm/prism/optics content from a
 prior 3.1.1 install. Clean-flashing this build directly over stock firmware
-or another ROM is not a validated path and has produced boot loop reports;
-see `docs/exynos9820-aux-partition-dependency.md` for the evidence and a
-read-only way to check a given device's odm/prism/optics content against the
-known-good 3.1.1 values before assuming this is (or isn't) the cause on a
-specific failing device.
+or another ROM is not a validated path and has produced boot loop reports.
+Install ArtisanROM 3.1.1 first and install this build over it instead. See
+CHANGELOG.md for the current status of this investigation; the underlying
+evidence and a read-only device-side diagnostic are kept in the external
+records directory per this file's own rule below, not in this checkout.
 
 See CHANGELOG.md for supported changes and known limitations. Session logs,
 reviews, device dumps, disassembly and build reports belong outside this source

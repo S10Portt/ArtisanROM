@@ -50,9 +50,7 @@ successful boot after installing ArtisanROM 3.1.1 first and then this
 build over it, without a factory reset in between. Until this is confirmed
 or a self-contained installer ships, **install ArtisanROM 3.1.1 first, then
 install this build over it, without flashing stock/other ROMs or
-re-partitioning in between.** See
-`docs/exynos9820-aux-partition-dependency.md` for the evidence and the
-read-only diagnostic steps.
+re-partitioning in between.**
 
 # 3.5.1
 - Switch to S22 Ultra firmware
