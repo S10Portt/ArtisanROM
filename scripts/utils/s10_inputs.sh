@@ -33,7 +33,8 @@ CHECK_S10_PROPERTY()
 # Validate the work/final kernel set independently of the source provenance manifest.
 CHECK_S10_KERNEL_SET()
 {
-    local ROOT="$1" FILE NAME
+    local ROOT="$1" FILE NAME MODE="${2:-kernel}"
+    [[ "$MODE" == kernel || "$MODE" == package ]] || return 1
     [[ -d "$ROOT" && -r "$ROOT" && -x "$ROOT" && ! -L "$ROOT" ]] || return 1
     for NAME in boot.img dtb.img dtbo.img; do
         FILE="$ROOT/$NAME"
@@ -44,7 +45,8 @@ CHECK_S10_KERNEL_SET()
     done
     for FILE in "$ROOT"/*.img "$ROOT"/.*.img; do
         [[ -e "$FILE" || -L "$FILE" ]] || continue
-        case "${FILE##*/}" in boot.img|dtb.img|dtbo.img) ;; *)
+        case "${FILE##*/}" in boot.img|dtb.img|dtbo.img) ;;
+            odm.img|prism.img|optics.img) [[ "$MODE" == package ]] || return 1 ;; *)
             echo "Unexpected S10 kernel image: $FILE" >&2
             return 1 ;;
         esac
@@ -67,6 +69,7 @@ CHECK_S10_INPUTS()
 {
     [[ "$TARGET_CODENAME" == "beyond1lte" ]] || return 0
     CHECK_S10_LAYOUT || return 1
+    python3 -B "$SRC_DIR/scripts/utils/s10_auxiliary_images.py" verify "$OUT_DIR/inputs/s10-auxiliary" || return 1
     if [[ "$TARGET_OS_FILE_SYSTEM_TYPE" != "erofs" ]]; then
         echo "S10 requires the selected EROFS OS policy; regenerate stale configuration" >&2
         return 1
@@ -270,6 +273,7 @@ CHECK_S10_SOURCE_INPUTS()
 CHECK_S10_ZIP_INPUTS()
 {
     CHECK_S10_LAYOUT || return 1
+    python3 -B "$SRC_DIR/scripts/utils/s10_auxiliary_images.py" verify "$OUT_DIR/inputs/s10-auxiliary" || return 1
     python3 "$SRC_DIR/scripts/utils/s10_auxiliary_contract.py" work "$WORK_DIR" || return 1
     python3 "$SRC_DIR/scripts/utils/s10_validate_inputs.py" zip \
         "$FW_DIR" "$SOURCE_FIRMWARE" "$TARGET_FIRMWARE" "$WORK_DIR" || return 1

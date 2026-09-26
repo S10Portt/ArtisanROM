@@ -10,46 +10,46 @@ validation. They contain no device serial, account, or host path. Do not replace
 these inputs with reports or weaken checks to accept another layout.
 
 Use a matching kernel set with the provenance contract in kernel/README.md.
-Only boot, dtb, dtbo, system, vendor and product are installer write targets.
-ODM, prism, optics and up_param are preserved. Recovery must validate actual
-write paths before installation. Build success does not certify device behavior.
+The installer writes exactly system, vendor, product, boot, dtb, dtbo, ODM,
+prism and optics. Data, EFS and up_param remain outside its write contract.
+All nine paths and sizes are checked before the first write. Auxiliary targets
+must be unmounted and recovery must provide e2fsck and resize2fs.
 
-**Preserved does not mean provided.** This installer never writes odm/prism/
-optics/up_param, so whatever is already on those partitions at install time
-stays there unchanged. Every on-device boot confirmation to date has been on
-a device that already had ArtisanROM 3.1.1's odm/prism/optics content from a
-prior 3.1.1 install. Clean-flashing this build directly over stock firmware
-or another ROM is not a validated path and has produced boot loop reports.
-Install ArtisanROM 3.1.1 first and install this build over it instead. See
-CHANGELOG.md for the current status of this investigation; the underlying
-evidence and a read-only device-side diagnostic are kept in the external
-records directory per this file's own rule below, not in this checkout.
+## Integrated auxiliary inputs
 
-See CHANGELOG.md for supported changes and known limitations. Session logs,
-reviews, device dumps, disassembly and build reports belong outside this source
-checkout. Keep only maintained source/configuration and reusable documentation.
+Before building, prepare the pinned 3.1.1 source ZIP once:
 
-The GZD7 SurfaceFlinger legacy-composer port fix is applied after all modules.
-It is pinned to an exact input hash and preserves identification-aware duplicate
-checks and the two-display legacy limit. Wired DeX video, touchpad operation
-and reconnect have been tested on-device. HDMI audio is a separate path.
+```sh
+python3 -B scripts/utils/s10_auxiliary_images.py prepare /path/to/ArtisanROM_OFFICIAL_3.1.1_20260428_beyond1lte-sign.zip out/inputs/s10-auxiliary
+```
 
-The HWC1 ARM32 audio HAL HDMI selector is patched to accept GZD7's MULTI_CH
-flag. The patch is pinned to an exact input hash and applied only to this
-target after modules. Host instruction tests cover output selection. Post-flash
-operation was reported working; the full output-switching and playback
-regression matrix is not yet verified.
+Use the configured OUT_DIR in place of `out` if customized. Python 3.11+ and
+brotli are required. The manifest in auxiliary/artisan311.json fixes the source
+ZIP hash, raw ext4 hashes, image lengths and measured partition capacities.
+Preparation rejects an existing output directory; verification never repairs or
+silently replaces inputs. Use the helper's `verify` command to check a cache.
 
-Bluetooth A2DP hardware offload is not supported. The target forces software
-A2DP after persistent properties load on each boot, including data-preserving
-updates with a previously saved offload-enabled value. Developer options do not
-need to be enabled. The hardware-offload-disable preference is checked and
-locked in Settings; init restores the software-only property if changed.
-This is a compatibility workaround, not a hardware offload implementation.
-Only SBC playback has been validated; other codecs require separate testing.
+These inputs stay outside WORK_DIR and are staged after OS image conversion and
+kernel processing. They are not rebuilt, converted to EROFS or AVB-signed.
+Package hooks and the final signed ZIP are checked against the same manifest.
+The installer writes their raw bytes, then runs e2fsck -f -p (only exit 0/1
+accepted) and resize2fs before writing the kernel. The packaged images retain
+their pinned hashes; resizing on the device intentionally changes filesystem
+bytes. The final evidence records the source and packaged hashes.
 
-Window animation, transition animation and animator duration scales are set to
-0.5 once after boot completion. This also updates existing installations. A
-Settings.Global migration marker preserves subsequent user changes; a factory
-reset clears the marker and reapplies the defaults. Developer options remain
-unchanged. No audio-service restart experiment is installed.
+## Installation validation status
+
+The previous 20260920 hotfix preserved auxiliaries and could leave them empty
+after Repartition/Cleaner. That released artifact is unchanged. The new source
+supplies all three contents inside the normal ROM ZIP, so a separate seed ZIP or
+3.1.1 installation is no longer an installer input requirement.
+
+The intended sequence is Repartition → Cleaner → newly built integrated ROM →
+normal clean-install data setup → boot. Do not run Cleaner after installing the
+ROM: it erases the newly installed partitions. No automatic data wipe is added.
+
+**Integrated clean boot remains unverified.** Prior successful reports involved
+booting 3.1.1 first, which may also initialize data/EFS/OMR state. Do not present
+this implementation as a confirmed public boot-loop fix before a clean-install
+device test. The initial payload deliberately retains 3.1.1's donor ODM identity;
+replacing it with a newly constructed S10 ODM is separate work.

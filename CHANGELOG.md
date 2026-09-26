@@ -37,20 +37,13 @@
   control descriptor is ready, allowing recovery from an early FunctionFS
   bind failure without enabling USB debugging. On-device validation pending.
 
-**Known issue (2026-09-25): clean flash from stock or another ROM is not
-currently a validated install path.** This installer only writes
-`system`/`vendor`/`product`/`boot`/`dtb`/`dtbo`; it deliberately never
-touches `odm`/`prism`/`optics`/`up_param` and preserves whatever is already
-on those partitions. All on-device boot confirmations so far come from a
-device that was already running ArtisanROM 3.1.1 (which does write those
-four partitions) before this build was installed over it. Multiple reports
-of a boot loop after a clean install from stock firmware or an unrelated
-custom ROM are under investigation; at least one user has reported a
-successful boot after installing ArtisanROM 3.1.1 first and then this
-build over it, without a factory reset in between. Until this is confirmed
-or a self-contained installer ships, **install ArtisanROM 3.1.1 first, then
-install this build over it, without flashing stock/other ROMs or
-re-partitioning in between.**
+**Unreleased S10 installer update:** include the exact 3.1.1 ODM/prism/optics
+ext4 images in the normal ROM ZIP. Validate their source and final package
+hashes, all nine partition sizes and unmounted auxiliary targets before writing.
+Check ext4 repair/resize results; continue to exclude data, EFS and up_param.
+This addresses missing auxiliary content after Cleaner. The integrated build's
+clean boot and hardware regression tests remain pending. The previously released
+20260920 hotfix is unchanged and still has the documented 3.1.1 prerequisite.
 
 # 3.5.1
 - Switch to S22 Ultra firmware

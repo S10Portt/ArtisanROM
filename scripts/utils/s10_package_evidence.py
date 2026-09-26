@@ -13,13 +13,16 @@ from pathlib import Path
 import stat
 import sys
 import tempfile
+import zipfile
+from s10_auxiliary_images import REPO, manifest
+from s10_auxiliary_contract import check_zip
 
 TEXT_INPUTS = tuple(
     f'image-metadata/{kind}-{partition}'
     for partition in ('system', 'vendor', 'product')
     for kind in ('fs_config', 'file_context')
 ) + ('META-INF/com/google/android/updater-script', 'META-INF/com/google/android/update-binary', 'build_info.txt',
-     'META-INF/com/android/metadata')
+     'META-INF/com/android/metadata', 'layout-preflight.sh', 'auxiliary-postinstall.sh', 'auxiliary-source.json')
 KERNELS = ('boot.img', 'dtb.img', 'dtbo.img')
 
 
@@ -70,6 +73,13 @@ def preserve(stage, archive, output, work):
         records[name], contents[name] = snapshot(stage/name, retain=True)
     kernels = {name: snapshot(stage/name)[0] for name in KERNELS}
     archive_record = snapshot(archive)[0]
+    with zipfile.ZipFile(archive) as package:
+        check_zip(package)
+    auxiliary = manifest()
+    auxiliary_records = {p: snapshot(stage/(p+'.img'))[0] for p in auxiliary['partitions']}
+    for p,record in auxiliary_records.items():
+        if record['sha256'] != auxiliary['partitions'][p]['sha256']:
+            raise ValueError('staged auxiliary changed: '+p)
     # Recheck small inputs before writing; there is no global filesystem lock.
     for name, expected in records.items():
         if snapshot(stage/name)[0] != expected:
@@ -87,14 +97,18 @@ def preserve(stage, archive, output, work):
         if snapshot(dest)[0] != records[name]:
             raise ValueError(f'evidence copy mismatch: {name}')
     report = {
-        'schema': 1,
+        'schema': 2,
+        'write_partitions': ['system','vendor','product','boot','dtb','dtbo','odm','prism','optics'],
+        'not_written': ['data','efs','up_param'],
+        'auxiliary_source': auxiliary['source'],
+        'auxiliary_payloads': auxiliary_records,
         'scope': 'Packaging evidence only; no final image, AVB, installer or runtime approval.',
         'installation_approved': False,
         'archive': {'name': archive.name, **archive_record},
         'kernel_hashes_after_processing': kernels,
         'preserved_files': records,
         'limitations': ['Sequential snapshots without concurrent-writer exclusion.',
-                       'No claim that archive members were independently extracted and compared.',
+                       'Auxiliary ZIP members independently hash-checked; OS/kernel member comparison is outside this report.',
                        'Android ownership/xattrs are represented by metadata, not host copy stat.'],
     }
     # A failed copy leaves an incomplete evidence directory without this record.

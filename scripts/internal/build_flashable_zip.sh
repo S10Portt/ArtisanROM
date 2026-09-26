@@ -7,6 +7,7 @@ if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
     source "$SRC_DIR/scripts/utils/s10_inputs.sh" || exit 1
     CHECK_S10_ZIP_INPUTS || exit 1
     python3 "$SRC_DIR/scripts/utils/s10_installer_guard.py" "$SRC_DIR" || exit 1
+    python3 -B "$SRC_DIR/scripts/utils/s10_auxiliary_images.py" verify "$OUT_DIR/inputs/s10-auxiliary" || exit 1
     S10_ZIP_WORK_HASH="$(python3 "$SRC_DIR/scripts/utils/s10_tree_hash.py" work "" "$WORK_DIR")" || exit 1
 fi
 source "$SRC_DIR/scripts/utils/build_utils.sh" || exit 1
@@ -289,6 +290,7 @@ GENERATE_UPDATER_SCRIPT()
 
     if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
         cp -a "$SRC_DIR/target/beyond1lte/installer/layout-preflight.sh" "$TMP_DIR/layout-preflight.sh" || exit 1
+        cp -a "$SRC_DIR/target/beyond1lte/installer/auxiliary-postinstall.sh" "$TMP_DIR/auxiliary-postinstall.sh" || exit 1
     fi
 
     local PARTITION_COUNT=0
@@ -356,7 +358,7 @@ GENERATE_UPDATER_SCRIPT()
 
         if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
             # Confirms the attached device's actual system/vendor/product/boot/
-            # dtb/dtbo partition byte sizes match this build's assumed
+            # dtb/dtbo and ODM/prism/optics sizes match this build's assumed
             # user-repartition-20260913 profile before any block_image_update()
             # writes -- see target/beyond1lte/installer/layout-preflight.sh.
             echo    'ui_print("Checking partition layout...");'
@@ -428,6 +430,14 @@ GENERATE_UPDATER_SCRIPT()
             echo -n "product.new.dat${BROTLI_EXTENSION}"
             echo    '", "product.patch.dat") ||'
             echo    '  abort("E2001: Failed to update product image.");'
+        fi
+        if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+            for AUX in odm prism optics; do
+                echo "assert(package_extract_file(\"$AUX.img\", \"/dev/block/by-name/$AUX\"));"
+            done
+            echo 'assert(package_extract_file("auxiliary-postinstall.sh", "/tmp/auxiliary-postinstall.sh"));'
+            echo 'set_metadata("/tmp/auxiliary-postinstall.sh", "uid", 0, "gid", 0, "mode", 0755);'
+            echo 'assert(run_program("/tmp/auxiliary-postinstall.sh") == "0");'
         fi
         if $HAS_SYSTEM_EXT; then
             echo -e "\n# Patch partition system_ext\n"
@@ -811,6 +821,12 @@ if [ -f "$WORK_DIR/up_param.bin" ]; then
     cp -a "$WORK_DIR/up_param.bin" "$TMP_DIR/up_param.bin" || exit 1
 fi
 
+# Stage immutable ext4 auxiliaries after OS conversion and kernel processing.
+if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
+    python3 -B "$SRC_DIR/scripts/utils/s10_auxiliary_images.py" stage \
+        "$OUT_DIR/inputs/s10-auxiliary" "$TMP_DIR" || exit 1
+fi
+
 LOG "- Generating updater-script"
 GENERATE_UPDATER_SCRIPT
 
@@ -837,7 +853,7 @@ fi
 if [[ "$TARGET_CODENAME" == "beyond1lte" ]]; then
     python3 "$SRC_DIR/scripts/utils/s10_installer_guard.py" "$SRC_DIR" "$TMP_DIR" || exit 1
     python3 "$SRC_DIR/scripts/utils/s10_auxiliary_contract.py" package "$TMP_DIR" || exit 1
-    CHECK_S10_KERNEL_SET "$TMP_DIR" || exit 1
+    CHECK_S10_KERNEL_SET "$TMP_DIR" package || exit 1
     for KERNEL_PART in BOOT DTB DTBO; do
         KERNEL_LIMIT_VAR="TARGET_${KERNEL_PART}_PARTITION_SIZE"
         KERNEL_FINAL_SIZE="$(GET_IMAGE_SIZE "$TMP_DIR/${KERNEL_PART,,}.img")" || exit 1
